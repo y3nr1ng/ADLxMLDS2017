@@ -36,15 +36,7 @@ print('loading training set')
 X_train, y_train = load_mnist('data', kind='train')
 
 # create classifier
-n_estimators = 10
-classifier = OneVsRestClassifier(
-    BaggingClassifier(
-        SVC(C=10, kernel='poly'),
-        max_samples=1.0/n_estimators,
-        n_estimators=n_estimators,
-        n_jobs=4
-    )
-)
+classifier = SVC(C=10, kernel='poly')
 
 # execute
 print('training...')
@@ -55,7 +47,7 @@ print('elapsed {:.2f}s'.format(end-start))
 
 # test the classifier using the original set
 score = classifier.score(X_train, y_train)
-print('score={}%%'.format(score*100))
+print('score={:.5f}'.format(score))
 
 # load the test data
 print('loading test set')

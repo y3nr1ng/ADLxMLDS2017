@@ -1,0 +1,5 @@
+# macOS residual
+.DS_Store
+
+# datasets
+data/

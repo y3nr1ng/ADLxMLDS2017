@@ -1,5 +1,6 @@
 import os
 import gzip
+import csv
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 
@@ -13,13 +14,12 @@ def load_mnist_labels(path, kind='train'):
 def load_mnist_images(path, kind='train', n_images=None):
     """ Load MNIST images from `path` """
     images_path = os.path.join(path, '{}-images-idx3-ubyte.gz'.format(kind))
-    with gzip.open(labels_path, 'rb') as lbpath:
+    with gzip.open(images_path, 'rb') as impath:
         # try to fetch information from the labels
         if not n_images:
             labels = load_mnist_labels(path, kind=kind)
             n_images = len(labels)
-        images = np.frombuffer(lbpath.read(), dtype=np.uint8, offset=16)
-                   .reshape(len(labels), 784)
+        images = np.frombuffer(impath.read(), dtype=np.uint8, offset=16).reshape(n_images, 784)
     return images
 
 def load_mnist(path, kind='train'):
@@ -29,16 +29,27 @@ def load_mnist(path, kind='train'):
     return images, labels
 
 # load the training data
+print('loading training set')
 X_train, y_train = load_mnist('data', kind='train')
 
 # create classifier
 classifier = RandomForestClassifier(criterion='gini', max_depth=100, n_estimators=10)
 # execute
+print('training...')
 classifier.fit(X_train, y_train)
 
 # test the classifier using the original set
 score = classifier.score(X_train, y_train)
 print('score={}%%'.format(score*100))
 
+# load the test data
+print('loading test set')
+X_test = load_mnist_images('data', kind='t10k', n_images=10000)
+# predict
+print('predicting...')
+y_test = classifier.predict(X_test)
 
-    y_test = classifier.predict(X_train)
+# save the result
+print('saving the result')
+y_index = np.arange(10000)
+np.savetxt('result.csv', np.c_[y_index,y_test], fmt='%d', header='id,label', delimiter=',', comments='')

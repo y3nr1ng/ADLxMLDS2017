@@ -1,8 +1,11 @@
 import os
 import gzip
 import csv
+import time
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.ensemble import BaggingClassifier
+from sklearn.svm import SVC
 
 def load_mnist_labels(path, kind='train'):
     """ Load MNIST label from `path` """
@@ -33,10 +36,22 @@ print('loading training set')
 X_train, y_train = load_mnist('data', kind='train')
 
 # create classifier
-classifier = RandomForestClassifier(criterion='gini', max_depth=100, n_estimators=10)
+n_estimators = 10
+classifier = OneVsRestClassifier(
+    BaggingClassifier(
+        SVC(C=10, kernel='poly'),
+        max_samples=1.0/n_estimators,
+        n_estimators=n_estimators,
+        n_jobs=4
+    )
+)
+
 # execute
 print('training...')
+start = time.time()
 classifier.fit(X_train, y_train)
+end = time.time()
+print('elapsed {:.2f}s'.format(end-start))
 
 # test the classifier using the original set
 score = classifier.score(X_train, y_train)

@@ -12,7 +12,7 @@ from sklearn.svm import SVC
 logger = logging.getLogger('hw0')
 logger.setLevel(logging.DEBUG)
 # log format
-formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
+formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s', datefmt='%H:%M:%S')
 # create console handler
 ch = logging.StreamHandler()
 ch.setFormatter(formatter)
@@ -48,7 +48,10 @@ logger.info('load training set')
 X_train, y_train = load_mnist('data', kind='train')
 
 def hist_eq(image, n_bins=196):
-    """ Perform histogram equalization on a flattened image array """
+    """ Perform histogram equalization on a flattened image array
+    Reference:
+    http://www.janeriksolem.net/2009/06/histogram-equalization-with-python-and.html
+    """
     imhist, bins = np.histogram(image, n_bins, normed=True)
 
     # cumulative distribution function
@@ -57,16 +60,27 @@ def hist_eq(image, n_bins=196):
     cdf = (n_bins-1) * cdf / cdf[-1]
 
     # use linear interpolation of cdf to find new values
-    image_eq = np.interp(image, bin[:-1], cdf)
+    image_eq = np.interp(image, bins[:-1], cdf)
 
     return image_eq
 
 # apply histogram equalization to images
+logger.info('hist eq START')
+start = time.time()
 X_train = np.apply_along_axis(hist_eq, axis=1, arr=X_train)
+end = time.time()
+logger.info('hist eq END, elapsed {:.2f}s'.format(end-start))
 
 # create classifier
-classifier = SVC(C=10, kernel='poly')
-
+n_estimators = 10
+classifier = OneVsRestClassifier(
+    BaggingClassifier(
+        SVC(C=10, kernel='poly'),
+        max_samples=1.0/n_estimators,
+        n_estimators=n_estimators,
+        n_jobs=4
+    )
+)
 # execute
 logger.info('training START')
 start = time.time()
@@ -81,6 +95,8 @@ logger.debug('score = {:.5f}'.format(score))
 # load the test data
 logger.info('load test set')
 X_test = load_mnist_images('data', kind='t10k', n_images=10000)
+# histogram equalization
+X_test = np.apply_along_axis(hist_eq, axis=1, arr=X_test)
 # predict
 logger.info('predict START')
 start = time.time()

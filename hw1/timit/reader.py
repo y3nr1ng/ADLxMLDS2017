@@ -1,83 +1,96 @@
+import os
+import csv
+import pandas as pd
+
 from .frames import Frames
 import pickle
 import os
 import collections
 
-def parseInstanceID(raw, sep='_'):
-    """
-    Strip the instance ID into three parts:
-    1) Speaker ID
-    2) Sentence ID
-    3) Frame ID
-    where speaker ID and sentence ID will combine into a tuple to use as the key
-    for dictionaries, and frame ID is converted into integer automatically.
+class TIMIT:
+    def __init__(self):
+        pass
 
-    Parameters
-    ----------
-    raw: str
-        the raw instance ID
-    sep: str, default to '_'
-        separator between the IDs
-    """
-    speaker, sentence, frame = raw.strip().split(sep)
-    return (speaker, sentence), int(frame)
+    def load(self, root, name, model='mfcc', has_label=True):
+        """
+        Load the TIMIT dataset from specified location.
 
-def parseData(raw, sep=' '):
-    instance, _, data = raw.strip().partition(sep)
-    instance, frame = parseInstanceID(instance)
-    data = [float (x) for x in data.split()]
-    return instance, frame, data
+        Parameters
+        ----------
+        root: str
+            Root directory of the dataset.
+        name: str
+            Name of the dataset.
+        model: str
+            Model to use for training or inference.
+        has_label: bool, default to True
+            Whether the dataset is labeled.
+        """
+        self._root = root
+        self._name = name
+        self._model = model
 
-def loadData(folder, name):
-    dataName = '{}.ark'.format(name)
-    dataPath = os.path.join(folder, 'mfcc', dataName)
-    dimension = -1
-    with open(dataPath, 'r') as fd:
-        # use list() as the initializer function for missing keys
-        data = collections.defaultdict(Frames)
-        index = 0
-        for line in fd:
-            instance, frame, features = parseData(line)
-            # save feature size
-            if dimension < 0:
-                dimension = len(features)
-            # raw frame ID starts with 1
-            frame -= 1
-            # store the label at specified frame position
-            frameList = data[instance]
-            frameList[frame] = features
-            data[instance] = frameList
+        df_labels = self._load_labels()
+        df_features = self._load_features()
 
-            index += 1
-            print('\rReading entry {}'.format(index), end='')
-        print('\r{} datasets loaded'.format(len(data)))
-    return data, dimension
+        result = pd.merge(df_labels, df_features,
+                          on=['speaker', 'sentence', 'frame'])
+        return result
 
-def parseLabel(raw, sep=','):
-    instance, label = raw.strip().split(sep)
-    instance, frame = parseInstanceID(instance)
-    return instance, frame, label
+    def _load_labels(self):
+        src_dir = os.path.join(self._root, 'label')
+        filename = '{}.lab'.format(self._name)
+        path = os.path.join(src_dir, filename)
+        with open(path, 'r') as fd:
+            data = []
+            for line in fd:
+                instance, label = line.strip().split(',')
+                instance = TIMIT.parse_instance_id(instance)
+                data.append(instance + [label])
+        # convert to column-wise
+        data = list(zip(*data))
+        df = pd.DataFrame({
+            'speaker': data[0], 'sentence': data[1], 'frame': data[2],
+            'label': pd.Categorical(data[3])
+        })
+        return df
 
-def loadLabel(folder, name, lut):
-    labelName = '{}.lab'.format(name)
-    labelPath = os.path.join(folder, 'label', labelName)
-    with open(labelPath, 'r') as fd:
-        # use list() as the initializer function for missing keys
-        labels = collections.defaultdict(Frames)
-        index = 0
-        for line in fd:
-            instance, frame, label = parseLabel(line)
-            # raw frame ID starts with 1
-            frame -= 1
-            # store the label at specified frame position
-            frameList = labels[instance]
-            frameList[frame] = lut[label][0]
-            labels[instance] = frameList
+    def _load_features(self):
+        src_dir = os.path.join(self._root, self._model)
+        filename = '{}.ark'.format(self._name)
+        path = os.path.join(src_dir, filename)
+        with open(path, 'r') as fd:
+            data = []
+            for line in fd:
+                instance, _, features = line.strip().partition(' ')
+                instance = TIMIT.parse_instance_id(instance)
+                features = [float(x) for x in features.split()]
+                data.append(instance + features)
+        # generate feature labels
+        n_feature = len(data[0])-3;
+        headers = ['f{}'.format(x) for x in range(n_feature)]
+        headers = ['speaker', 'sentence', 'frame'] + headers;
+        df = pd.DataFrame(data, columns=headers)
+        return df
 
-            index += 1
-            print('\rReading entry {}'.format(index), end='')
-        print('\r{} label-sets loaded'.format(len(labels)))
-    return labels
+    @staticmethod
+    def parse_instance_id(text, sep='_'):
+        """
+        Strip the instance ID into speaker, sentence and frame.
+
+        Parameters
+        ----------
+        text: str
+            The raw intance ID.
+        sep: str, default to '_'
+            Separator used between IDs.
+        """
+        speaker, sentence, frame = text.strip().split(sep)
+        try:
+            frame = int(frame)
+        except ValueError:
+            print('Frame ID is not an integer')
+        return [speaker, sentence, frame]
 
 def parsePhoneLUT(raw, sep='\t'):
     p48, _, p39 = raw.strip().partition(sep)

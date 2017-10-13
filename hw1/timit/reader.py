@@ -9,7 +9,26 @@ import collections
 
 class TIMIT:
     def __init__(self):
-        pass
+        self.lut = self._load_map()
+        self.data = []
+
+    def _load_map(self):
+        # load the phone-character map
+        def phone_to_char(raw, sep='\t'):
+            phone, _, char = raw.strip().split(sep)
+            return phone, char
+        path = os.path.join(self._root, '48phone_char.map')
+        with open(path, 'r') as fd:
+            lut = collections.OrderedDict(phone_to_char(line) for line in fd)
+
+        # simplify the mapping
+        def phone_remap(raw, sep='\t'):
+            p48, _, p39 = raw.strip().partition(sep)
+            return p48, p39
+        path = os.path.join(self._root, 'phones', '48_39.map')
+        with open(path, 'r') as fd:
+            remap_lut = dict(phone_remap(line) for line in fd)
+        #TODO finish the remapping
 
     def load(self, root, name, model='mfcc', has_label=True):
         """
@@ -33,9 +52,8 @@ class TIMIT:
         df_labels = self._load_labels()
         df_features = self._load_features()
 
-        result = pd.merge(df_labels, df_features,
-                          on=['speaker', 'sentence', 'frame'])
-        return result
+        self.data = pd.merge(df_labels, df_features,
+                             on=['speaker', 'sentence', 'frame'])
 
     def _load_labels(self):
         src_dir = os.path.join(self._root, 'label')
@@ -92,6 +110,9 @@ class TIMIT:
             print('Frame ID is not an integer')
         return [speaker, sentence, frame]
 
+    def dump(self, head=None):
+        print(self.data.head(head))
+
 def parsePhoneLUT(raw, sep='\t'):
     p48, _, p39 = raw.strip().partition(sep)
     return p48, p39
@@ -129,33 +150,3 @@ def mergeLabelAndData(labels, data):
         key: list(zip(phones, data[key])) for key, phones in labels.items()
     }
     return samples
-
-def loadTIMIT(folder, name, force=False):
-    # phone-character map
-    lut = loadMap(folder)
-    print('Phone-character mapping')
-    for key, value in lut.items():
-        print(' {} -> {}'.format(key, value))
-    print()
-
-    dataPath = os.path.join(folder, '{}.pkl'.format(name))
-    if os.path.isfile(dataPath) and not force:
-        print('Use previously saved pickle')
-        # file exists and allow to use previous result
-        with open(dataPath, 'rb') as fd:
-            samples = pickle.load(fd)
-            dimension = pickle.load(fd)
-    else:
-        labels = loadLabel(folder, name, lut)
-        data, dimension = loadData(folder, name)
-
-        if len(labels) != len(data):
-            raise ValueError('Unable to form label-data pair')
-        samples = mergeLabelAndData(labels, data)
-
-        # save to pkl
-        with open(dataPath, 'wb') as fd:
-            pickle.dump(samples, fd, pickle.HIGHEST_PROTOCOL)
-            pickle.dump(dimension, fd, pickle.HIGHEST_PROTOCOL)
-
-    return samples, dimension, lut

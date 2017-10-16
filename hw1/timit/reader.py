@@ -1,14 +1,19 @@
+import pandas as pd
 import os
 import csv
-import pandas as pd
-
-from .frames import Frames
-import pickle
-import os
 import collections
 
 class TIMIT:
-    def __init__(self):
+    def __init__(self, root):
+        """
+        Parameters
+        ----------
+        root: str
+            Root directory of the dataset.
+        """
+        if root is None:
+            raise ValueError('Invalid root directory')
+        self._root = root
         self.lut = self._load_map()
         self.data = []
 
@@ -28,16 +33,21 @@ class TIMIT:
         path = os.path.join(self._root, 'phones', '48_39.map')
         with open(path, 'r') as fd:
             remap_lut = dict(phone_remap(line) for line in fd)
-        #TODO finish the remapping
+        for old_phone in remap_lut:
+            new_phone = remap_lut[old_phone]
+            if old_phone != new_phone:
+                lut[old_phone] = lut[new_phone]
+                print('Remap \'{}\' to \'{}\''.format(old_phone, new_phone))
+        print()
 
-    def load(self, root, name, model='mfcc', has_label=True):
+        return lut
+
+    def load(self, name, model='mfcc', has_label=True):
         """
         Load the TIMIT dataset from specified location.
 
         Parameters
         ----------
-        root: str
-            Root directory of the dataset.
         name: str
             Name of the dataset.
         model: str
@@ -45,7 +55,6 @@ class TIMIT:
         has_label: bool, default to True
             Whether the dataset is labeled.
         """
-        self._root = root
         self._name = name
         self._model = model
 
@@ -67,7 +76,10 @@ class TIMIT:
                 data.append(instance + [label])
         # convert to column-wise
         data = list(zip(*data))
-        df = pd.DataFrame({
+        #
+        #TODO replace the labels
+        #
+        #df = pd.DataFrame({
             'speaker': data[0], 'sentence': data[1], 'frame': data[2],
             'label': pd.Categorical(data[3])
         })
@@ -111,42 +123,12 @@ class TIMIT:
         return [speaker, sentence, frame]
 
     def dump(self, head=None):
+        """
+        Dump the data table.
+
+        Parameters
+        ----------
+        head: int
+            Dump only the first few rows, otherwise, all of them.
+        """
         print(self.data.head(head))
-
-def parsePhoneLUT(raw, sep='\t'):
-    p48, _, p39 = raw.strip().partition(sep)
-    return p48, p39
-
-def parsePhoneCharPair(raw, sep='\t'):
-    phone, index, char = raw.strip().split(sep)
-    return phone, (index, char)
-
-def loadMap(folder):
-    # load the phone-character map
-    mapPath = os.path.join(folder, '48phone_char.map')
-    with open(mapPath, 'r') as fd:
-        lut = dict(parsePhoneCharPair(line) for line in fd)
-
-    # simplify the mapping
-    mapPath = os.path.join(folder, 'phones', '48_39.map')
-    with open(mapPath, 'r') as fd:
-        phoneLUT = dict(parsePhoneLUT(line) for line in fd)
-    for oldPhone in lut:
-        newPhone = phoneLUT[oldPhone]
-        if oldPhone != newPhone:
-            oldMap = lut[oldPhone]
-            newMap = lut[newPhone]
-            print('Remap {}\'{}\' as {}\'{}\''.format(
-                    oldPhone, oldMap, newPhone, newMap))
-            newMap = (newMap[0], oldMap[1])
-            lut[oldPhone] = newMap
-
-    print()
-
-    return lut
-
-def mergeLabelAndData(labels, data):
-    samples = {
-        key: list(zip(phones, data[key])) for key, phones in labels.items()
-    }
-    return samples

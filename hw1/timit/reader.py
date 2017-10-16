@@ -76,12 +76,9 @@ class TIMIT:
                 data.append(instance + [label])
         # convert to column-wise
         data = list(zip(*data))
-        #
-        #TODO replace the labels
-        #
-        #df = pd.DataFrame({
+        df = pd.DataFrame({
             'speaker': data[0], 'sentence': data[1], 'frame': data[2],
-            'label': pd.Categorical(data[3])
+            'label': pd.Categorical([list(self.lut.keys()).index(x) for x in data[3]])
         })
         return df
 

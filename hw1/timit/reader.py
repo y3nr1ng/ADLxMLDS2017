@@ -58,11 +58,18 @@ class TIMIT:
         self._name = name
         self._model = model
 
-        df_labels = self._load_labels()
-        df_features = self._load_features()
+        src_dir = os.path.join(self._root, model)
+        filename = '{}.gz'.format(name)
+        path = os.path.join(src_dir, filename)
+        if os.path.exists(path):
+            self.data = pd.read_pickle(path)
+        else:
+            df_labels = self._load_labels()
+            df_features = self._load_features()
 
-        self.data = pd.merge(df_labels, df_features,
-                             on=['speaker', 'sentence', 'frame'])
+            self.data = pd.merge(df_labels, df_features,
+                                 on=['speaker', 'sentence', 'frame'])
+            #self.data.to_pickle(path)
 
     def _load_labels(self):
         src_dir = os.path.join(self._root, 'label')
@@ -77,7 +84,9 @@ class TIMIT:
         # convert to column-wise
         data = list(zip(*data))
         df = pd.DataFrame({
-            'speaker': data[0], 'sentence': data[1], 'frame': data[2],
+            'speaker': pd.Categorical(data[0]),
+            'sentence': pd.Categorical(data[1]),
+            'frame': data[2],
             'label': pd.Categorical([list(self.lut.keys()).index(x) for x in data[3]])
         })
         return df
@@ -118,6 +127,20 @@ class TIMIT:
         except ValueError:
             print('Frame ID is not an integer')
         return [speaker, sentence, frame]
+
+    @property
+    def x(self):
+        """
+        Return all the features (f_i) as an numpy array.
+        """
+        return self.data.loc[:, 'f0':].values
+
+    @property
+    def y(self):
+        """
+        Return the label column as numpy array.
+        """
+        return self.data['label'].values
 
     def dump(self, head=None):
         """

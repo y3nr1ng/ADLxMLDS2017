@@ -3,7 +3,7 @@ from timeit import default_timer as timer
 
 # limit TensorFlow to use specific device
 import tensorflow as tf
-tf_config = tf.ConfigProto(device_count={'GPU': 0})
+tf_config = tf.ConfigProto(device_count={'CPU': 4})
 tf_session = tf.Session(config=tf_config)
 # assign the session for Keras
 from keras.backend.tensorflow_backend import set_session
@@ -12,7 +12,7 @@ K.tensorflow_backend.set_session(tf_session)
 
 import numpy as np
 from keras.models import Sequential
-from keras.layers import LSTM, TimeDistributed, Dense
+from keras.layers import GRU, TimeDistributed, Dense
 
 # load the dataset
 dataset = reader.TIMIT('data')
@@ -34,9 +34,10 @@ y_train = np.expand_dims(np.expand_dims(dataset.y, axis=1), axis=2)
 
 print('Building model...\n')
 model = Sequential()
-model.add(LSTM(n_features, input_shape=(1, n_features), return_sequences=True))
+model.add(GRU(n_features, input_shape=(1, n_features), return_sequences=True))
+model.add(GRU(n_features, input_shape=(1, n_features), return_sequences=True))
 model.add(TimeDistributed(Dense(1, activation='relu')))
-model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+model.compile(loss='mean_squared_error', optimizer='adam', metrics=['accuracy'])
 print(model.summary())
 
 print('Training started\n')

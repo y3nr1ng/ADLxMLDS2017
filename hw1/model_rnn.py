@@ -13,7 +13,7 @@ K.tensorflow_backend.set_session(tf_session)
 import numpy as np
 import keras
 from keras.models import Sequential
-from keras.layers import GRU, TimeDistributed, Dense
+from keras.layers import LSTM, TimeDistributed, Dense
 
 # load the dataset
 dataset = reader.TIMIT('data')
@@ -37,10 +37,10 @@ y_train = np.expand_dims(y_train, axis=1)
 
 print('Building model...\n')
 model = Sequential()
-model.add(GRU(512, input_shape=(1, n_features), return_sequences=True))
-model.add(GRU(512, return_sequences=True))
+model.add(LSTM(1024, input_shape=(1, n_features), return_sequences=True))
+model.add(LSTM(1024, return_sequences=True))
 #model.add(Dense(512, activation='relu'))
-model.add(TimeDistributed(Dense(n_classes, activation='softmax')))
+model.add(TimeDistributed(Dense(n_classes, activation='relu')))
 print(model.summary())
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 

@@ -3,7 +3,8 @@ from timeit import default_timer as timer
 
 # limit TensorFlow to use specific device
 import tensorflow as tf
-tf_config = tf.ConfigProto(device_count={'GPU': 1})
+#tf_config = tf.ConfigProto(device_count={'GPU': 1})
+tf_config = None
 tf_session = tf.Session(config=tf_config)
 # assign the session for Keras
 from keras.backend.tensorflow_backend import set_session
@@ -13,7 +14,7 @@ K.tensorflow_backend.set_session(tf_session)
 import numpy as np
 import keras
 from keras.models import Sequential
-from keras.layers import LSTM, TimeDistributed, Dense
+from keras.layers import GRU, TimeDistributed, Dense
 
 # load the dataset
 dataset = reader.TIMIT('data')
@@ -37,8 +38,9 @@ y_train = np.expand_dims(y_train, axis=1)
 
 print('Building model...\n')
 model = Sequential()
-model.add(LSTM(1024, input_shape=(1, n_features), return_sequences=True))
-model.add(LSTM(1024, return_sequences=True))
+model.add(GRU(1024, input_shape=(1, n_features), return_sequences=True))
+model.add(GRU(1024, return_sequences=True))
+#TODO bidrectional LSTM (concat) + Dense
 #model.add(Dense(512, activation='relu'))
 model.add(TimeDistributed(Dense(n_classes, activation='relu')))
 print(model.summary())

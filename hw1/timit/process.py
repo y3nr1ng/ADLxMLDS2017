@@ -41,7 +41,6 @@ def group_by_sentence(dataset):
 
     # unpack instance sets and re-group the features
     for index, (speaker, sentence) in enumerate(sp_se_list):
-        logger.debug(index)
         r_sp = dataset.data['speaker'] == speaker
         r_se = dataset.data['sentence'] == sentence
         # sort by ascended frame IDs

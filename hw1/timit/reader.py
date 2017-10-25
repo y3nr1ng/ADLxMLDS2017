@@ -3,6 +3,9 @@ import os
 import csv
 import collections
 
+import logging
+logger = logging.getLogger()
+
 class TIMIT:
     def __init__(self, root):
         """
@@ -37,8 +40,7 @@ class TIMIT:
             new_phone = remap_lut[old_phone]
             if old_phone != new_phone:
                 lut[old_phone] = lut[new_phone]
-                print('Remap \'{}\' to \'{}\''.format(old_phone, new_phone))
-        print()
+                logger.info('\'{}\' -> \'{}\''.format(old_phone, new_phone))
 
         return lut
 
@@ -58,20 +60,14 @@ class TIMIT:
         self._name = name
         self._model = model
 
-        src_dir = os.path.join(self._root, model)
-        filename = '{}.gz'.format(name)
-        path = os.path.join(src_dir, filename)
-        if os.path.exists(path):
-            self.data = pd.read_pickle(path)
-        else:
-            df_labels = self._load_labels()
-            df_features = self._load_features()
+        df_labels = self._load_labels()
+        df_features = self._load_features()
 
-            self.data = pd.merge(df_labels, df_features,
-                                 on=['speaker', 'sentence', 'frame'])
-            #self.data.to_pickle(path)
+        self.data = pd.merge(df_labels, df_features,
+                             on=['speaker', 'sentence', 'frame'])
 
     def _load_labels(self):
+        """ Load .lab file of specified model in DataFrame. """
         src_dir = os.path.join(self._root, 'label')
         filename = '{}.lab'.format(self._name)
         path = os.path.join(src_dir, filename)
@@ -84,14 +80,14 @@ class TIMIT:
         # convert to column-wise
         data = list(zip(*data))
         df = pd.DataFrame({
-            'speaker': pd.Categorical(data[0]),
-            'sentence': pd.Categorical(data[1]),
-            'frame': data[2],
+            'speaker': data[0], 'sentence': data[1], 'frame': data[2],
             'label': pd.Categorical([list(self.lut.keys()).index(x) for x in data[3]])
         })
+        df = TIMIT.instances_as_category(df, ['speaker', 'sentence'])
         return df
 
     def _load_features(self):
+        """ Load .ark file of specified model in DataFrame. """
         src_dir = os.path.join(self._root, self._model)
         filename = '{}.ark'.format(self._name)
         path = os.path.join(src_dir, filename)
@@ -107,7 +103,27 @@ class TIMIT:
         headers = ['f{}'.format(x) for x in range(n_feature)]
         headers = ['speaker', 'sentence', 'frame'] + headers;
         df = pd.DataFrame(data, columns=headers)
+        df = TIMIT.instances_as_category(df, ['speaker', 'sentence'])
         return df
+
+    @staticmethod
+    def instances_as_category(df, col):
+        """
+        Convert list of columns to pandas.Categorical
+
+        Parameters
+        ----------
+        df: pandas.DataFrame
+            DataFrame source.
+        col: list(str)
+            List of column names to convert .
+        """
+        for c in col:
+            df[c] = df[c].astype('category')
+        return df
+
+    def _identify_dimensions(self):
+        pass
 
     @staticmethod
     def parse_instance_id(text, sep='_'):
@@ -125,7 +141,7 @@ class TIMIT:
         try:
             frame = int(frame)
         except ValueError:
-            print('Frame ID is not an integer')
+            logger.error('Frame ID is not an integer')
         return [speaker, sentence, frame]
 
     @property
@@ -141,6 +157,20 @@ class TIMIT:
         Return the label column as numpy array.
         """
         return self.data['label'].values
+
+    @property
+    def speakers(self):
+        """
+        Return a list of speaker IDs.
+        """
+        return self.data['speaker'].cat.categories
+
+    @property
+    def sentences(self):
+        """
+        Return a list of sentence IDs.
+        """
+        return self.data['sentence'].cat.categories
 
     def dump(self, head=None):
         """

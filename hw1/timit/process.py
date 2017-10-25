@@ -22,15 +22,15 @@ def group_by_sentence(dataset):
                                                    len(dataset.sentences)))
     sp_se_list = []
     for speaker in dataset.speakers:
+        r_sp = dataset.data[dataset.data['speaker'] == speaker]
         for sentence in dataset.sentences:
-            r_sp = dataset.data['speaker'] == speaker
-            r_se = dataset.data['sentence'] == sentence
-            if not dataset.data[r_sp & r_se].empty:
+            r_se = r_sp[r_sp['sentence'] == sentence]
+            if not r_se.empty:
                 logger.debug('({}, {})'.format(speaker, sentence))
                 sp_se_list.append((speaker, sentence))
     n_samples = len(sp_se_list)
     logger.info('{} available sentence (set) samples'.format(n_samples))
-    
+
     n_features = dataset.x.shape[1]
     # last class is null
     n_classes = len(dataset.lut)+1

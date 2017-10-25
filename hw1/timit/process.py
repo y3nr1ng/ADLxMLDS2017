@@ -13,25 +13,24 @@ def group_by_sentence(dataset):
     dataset: TIMIT
         Dataset that contains parsed TIMIT data.
     """
-    # (speaker, sentence) association
-    sp_se_list = []
     # maximum frames
-    n_frames = -1
+    n_frames = dataset.data['frame'].max()
+    logger.info('Maximum frame count is {}'.format(n_frames))
+
+    # (speaker, sentence) association
+    logger.info('{} speakers, {} sentences'.format(len(dataset.speakers),
+                                                   len(dataset.sentences)))
+    sp_se_list = []
     for speaker in dataset.speakers:
         for sentence in dataset.sentences:
             r_sp = dataset.data['speaker'] == speaker
             r_se = dataset.data['sentence'] == sentence
-            n_rows = dataset.data[r_sp & r_se].shape[0]
-
-            if n_rows > 0:
+            if not dataset.data[r_sp & r_se].empty:
+                logger.debug('({}, {})'.format(speaker, sentence))
                 sp_se_list.append((speaker, sentence))
-                if n_rows > n_frames:
-                    n_frames = n_rows
-
-    assert n_frames > 0
-    logger.info('Maximum frame count is {}'.format(n_frames))
-
     n_samples = len(sp_se_list)
+    logger.info('{} available sentence (set) samples'.format(n_samples))
+    
     n_features = dataset.x.shape[1]
     # last class is null
     n_classes = len(dataset.lut)+1
@@ -42,6 +41,7 @@ def group_by_sentence(dataset):
 
     # unpack instance sets and re-group the features
     for index, (speaker, sentence) in enumerate(sp_se_list):
+        logger.debug(index)
         r_sp = dataset.data['speaker'] == speaker
         r_se = dataset.data['sentence'] == sentence
         # sort by ascended frame IDs

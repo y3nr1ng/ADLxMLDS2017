@@ -6,7 +6,7 @@ from timeit import default_timer as timer
 
 # limit TensorFlow to use specific device
 import tensorflow as tf
-tf_config = tf.ConfigProto(device_count={'GPU': 1, 'CPU': 8})
+tf_config = tf.ConfigProto(device_count={'GPU': 1})
 tf_session = tf.Session(config=tf_config)
 # assign the session for Keras
 from keras.backend.tensorflow_backend import set_session
@@ -33,7 +33,7 @@ logger.setLevel(logging.DEBUG)
 dataset = reader.TIMIT('data')
 
 start = timer()
-dataset.load('train_small')
+dataset.load('train')
 end = timer()
 logger.debug('Data loaded in {0:.3f}s\n'.format(end-start))
 

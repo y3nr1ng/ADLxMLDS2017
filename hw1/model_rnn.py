@@ -15,7 +15,7 @@ K.tensorflow_backend.set_session(tf_session)
 
 import numpy as np
 from keras.models import Sequential
-from keras.layers import LSTM, TimeDistributed, Dense
+from keras.layers import Bidrectional, LSTM, TimeDistributed, Dense
 
 import logging
 logger = logging.getLogger()
@@ -46,14 +46,17 @@ x_train, y_train, dimension = process.group_by_sentence(dataset)
 
 logger.info('Building model...\n')
 model = Sequential()
-model.add(LSTM(1024, input_shape=(n_timestpes, n_features), return_sequences=True))
-#TODO bidrectional LSTM (concat) + Dense
+model.add(Bidirectional(LSTM(512, return_sequences=True),
+                        input_shape=(n_timestpes, n_features))
+model.add(LSTM(2048, return_sequences=True))
 model.add(TimeDistributed(Dense(n_classes, activation='relu')))
 print(model.summary())
-model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+model.compile(loss='categorical_crossentropy', optimizer='adam',
+              metrics=['accuracy'])
 
 print('Training started\n')
-history = model.fit(x_train, y_train, epochs=10, validation_split=0.2, verbose=1)
+history = model.fit(x_train, y_train,
+                    epochs=10, validation_split=0.2, verbose=1)
 
 # serialize model to JSON
 model_file = model.to_json()

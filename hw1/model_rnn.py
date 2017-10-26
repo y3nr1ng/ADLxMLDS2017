@@ -15,7 +15,7 @@ K.tensorflow_backend.set_session(tf_session)
 
 import numpy as np
 from keras.models import Sequential
-from keras.layers import Bidirectional, LSTM, TimeDistributed, Dense
+from keras.layers import Bidirectional, LSTM, TimeDistributed, Dense, GRU
 
 import logging
 logger = logging.getLogger()
@@ -33,7 +33,7 @@ logger.setLevel(logging.DEBUG)
 dataset = reader.TIMIT('data')
 
 start = timer()
-dataset.load('train')
+dataset.load('train_small')
 end = timer()
 logger.debug('Data loaded in {0:.3f}s\n'.format(end-start))
 
@@ -44,19 +44,21 @@ print(dataset.dump(3))
 x_train, y_train, dimension = process.group_by_sentence(dataset)
 (n_sampes, n_timestpes, n_features, n_classes) = dimension
 
-logger.info('Building model...\n')
+logger.info('Building model...')
 model = Sequential()
-model.add(Bidirectional(LSTM(512, return_sequences=True),
+model.add(Bidirectional(LSTM(1024, return_sequences=True),
                         input_shape=(n_timestpes, n_features)))
-model.add(LSTM(2048, return_sequences=True))
+#model.add(LSTM(1024, return_sequences=True))
 model.add(TimeDistributed(Dense(n_classes, activation='relu')))
 print(model.summary())
 model.compile(loss='categorical_crossentropy', optimizer='adam',
               metrics=['accuracy'])
 
-print('Training started\n')
+logger.info('Training started')
 history = model.fit(x_train, y_train,
-                    epochs=10, validation_split=0.2, verbose=1)
+                    epochs=100, batch_size=32, verbose=1)
+scores = model.evaluate(x_train, y_train, verbose=1)
+logger.info('{}: {:.2f}%%'.format(model.metrics_names[1], scores[1]*100))
 
 # serialize model to JSON
 model_file = model.to_json()
@@ -64,4 +66,4 @@ with open('rnn.json', 'w') as fd:
     fd.write(model_file)
 # serialize weights to HDF5
 model.save_weights('rnn.h5')
-logger.info('Model saved\n')
+logger.info('Model saved')

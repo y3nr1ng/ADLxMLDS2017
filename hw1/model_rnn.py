@@ -16,7 +16,7 @@ from keras import backend as K
 K.tensorflow_backend.set_session(tf_session)
 
 import numpy as np
-from keras.models import Sequential
+from keras.models import model_from_json, Sequential
 from keras.layers import Bidirectional, LSTM, TimeDistributed, Dense, GRU
 from keras.initializers import RandomUniform
 from keras.optimizers import SGD
@@ -34,51 +34,93 @@ logger.addHandler(handler)
 # set the global log level
 logger.setLevel(logging.DEBUG)
 
-if __name__ == '__main__':
-    dataset = reader.TIMIT('data')
-
+def load_dataset(name, folder='data', has_label=True):
+    dataset = reader.TIMIT(folder)
+    # load the raw data
     start = timer()
-dataset.load('train')
-end = timer()
-logger.debug('Data loaded in {0:.3f}s\n'.format(end-start))
+    dataset.load(name, has_label=has_label)
+    end = timer()
+    logger.debug('Data loaded in {0:.3f}s\n'.format(end-start))
 
-# preivew
-print(dataset.dump(3))
+    print(dataset.dump(3))
 
-# preprocess the data to 3-D
-x_train, y_train, dimension = process.group_by_sentence(dataset)
-(n_sampes, n_timestpes, n_features, n_classes) = dimension
+    return dataset
 
-logger.info('Building model...')
-model = Sequential()
-model.add(Bidirectional(LSTM(64,
-                             dropout=0.01, recurrent_dropout=0.01,
-                             return_sequences=True),
-                        input_shape=(n_timestpes, n_features)))
-model.add(TimeDistributed(Dense(n_classes, activation='softmax')))
-print(model.summary())
-model.compile(loss='categorical_crossentropy', optimizer='adam',
-              metrics=[metrics.categorical_accuracy])
+def build_model(dimension):
+    # unpack specification from the dataset
+    (n_timesteps, n_features, n_classes) = dimension
 
-batch_size = 32
+    logger.info('Building model...')
+    model = Sequential()
+    model.add(Bidirectional(LSTM(64,
+                                 dropout=0.01, recurrent_dropout=0.01,
+                                 return_sequences=True),
+                            input_shape=(n_timesteps, n_features)))
+    model.add(TimeDistributed(Dense(n_classes, activation='softmax')))
+    print(model.summary())
+    model.compile(loss='categorical_crossentropy', optimizer='adam',
+                  metrics=[metrics.categorical_accuracy])
+    return model
 
-logger.info('Training started')
-history = model.fit(x_train, y_train, validation_split=0.2,
-                    epochs=10, batch_size=batch_size, verbose=1)
-scores = model.evaluate(x_train, y_train, verbose=1)
-logger.info('{}: {:.2f}%'.format(model.metrics_names[1], scores[1]*100))
+def start_training(model, x, y, batch_size=32, epochs=10, validation_split=0.2):
+    logger.info('Training started')
+    history = model.fit(x, y, validation_split=validation_split,
+                        epochs=epochs, batch_size=batch_size, verbose=1)
 
-y_predict = model.predict(x_train, batch_size=batch_size, verbose=2)
-print('predict')
-print(np.argmax(y_predict, axis=2))
-print()
-print('ground truth')
-print(np.argmax(y_train, axis=2))
+    scores = model.evaluate(x, y, verbose=1)
+    logger.info('{}: {:.2f}%'.format(model.metrics_names[1], scores[1]*100))
 
-# serialize model to JSON
-model_file = model.to_json()
-with open('rnn.json', 'w') as fd:
-    fd.write(model_file)
-# serialize weights to HDF5
-model.save_weights('rnn.h5')
-logger.info('Model saved')
+    save_model(model)
+
+    return model, history
+
+def save_model(model, name='rnn'):
+    # serialize model
+    model_file = model.to_json()
+    with open('{}.json'.format(name), 'w') as fd:
+        fd.write(model_file)
+    # serialize weights
+    model.save_weights('{}.h5'.format(name))
+
+    logger.info('Model saved as \'{}\''.format(name))
+
+def load_model(name='rnn'):
+    # load model
+    with open('{}.json'.format(name), 'r') as fd:
+        model = model_from_json(fd.read())
+    # retrieve the dimensions
+    (_, n_timesteps, n_features) = model.layers[0].input_shape
+
+    # load weights
+    model.load_weights('{}.h5'.format(name))
+    # compile
+    model.compile(loss='categorical_crossentropy', optimizer='adam',
+                  metrics=[metrics.categorical_accuracy])
+
+    logger.info('Model loaded from \'{}\''.format(name))
+    return model, (n_timesteps, n_features)
+
+if __name__ == '__main__':
+    TRAIN_MODEL = False
+    set_name = 'train_small'
+    has_label = True
+
+    dataset = load_dataset(set_name, has_label=has_label)
+
+    if TRAIN_MODEL:
+        x, y, dimension = process.group_by_sentence(dataset)
+
+        model = build_model(dimension)
+        model, history = start_training(model, x, y)
+    else:
+        model, dimension = load_model()
+        # restrict the output by model shape
+        x, y, dimension = process.group_by_sentence(dataset, dimension)
+
+    y_predict = model.predict(x, verbose=2)
+
+    print('predict')
+    print(np.argmax(y_predict, axis=2)[0, :])
+    print()
+    print('ground truth')
+    print(np.argmax(y, axis=2)[0, :])

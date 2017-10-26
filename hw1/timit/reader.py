@@ -61,11 +61,13 @@ class TIMIT:
         self._name = name
         self._model = model
 
-        df_labels = self._load_labels()
         df_features = self._load_features()
-
-        self.data = pd.merge(df_labels, df_features,
-                             on=['speaker', 'sentence', 'frame'])
+        if has_label:
+            df_labels = self._load_labels()
+            self.data = pd.merge(df_labels, df_features,
+                                 on=['speaker', 'sentence', 'frame'])
+        else:
+            self.data = df_features
 
     def _load_labels(self):
         """ Load .lab file of specified model in DataFrame. """

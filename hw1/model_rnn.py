@@ -38,7 +38,7 @@ logger.setLevel(logging.DEBUG)
 dataset = reader.TIMIT('data')
 
 start = timer()
-dataset.load('train_small')
+dataset.load('train')
 end = timer()
 logger.debug('Data loaded in {0:.3f}s\n'.format(end-start))
 
@@ -59,7 +59,7 @@ print(model.summary())
 model.compile(loss='categorical_crossentropy', optimizer='adam',
               metrics=[metrics.categorical_accuracy])
 
-batch_size = 1
+batch_size = 16
 
 logger.info('Training started')
 history = model.fit(x_train, y_train,

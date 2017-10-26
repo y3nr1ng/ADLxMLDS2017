@@ -31,13 +31,13 @@ def group_by_sentence(dataset, dimension=None):
     else:
         n_features = dataset.x.shape[1]
     # last class is null
-    n_classes = len(dataset.lut)+1
+    n_classes = len(dataset.lut)
     # samples, timesteps (n_frames), features
-    xp = np.full([n_samples, n_frames, n_features], np.nan)
+    xp = np.full([n_samples, n_frames, n_features], 0)
     has_yp = 'label' in dataset.data
     if has_yp:
         # [0, n_classes), use n_classes as the null class
-        yp = np.full([n_samples, n_frames, n_classes], np.nan)
+        yp = np.full([n_samples, n_frames, n_classes], -1)
     else:
         yp = None
 

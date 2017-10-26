@@ -53,7 +53,7 @@ def build_model(dimension):
 
     logger.info('Building model...')
     model = Sequential()
-    model.add(Masking(mask_value=np.nan, input_shape=input_shape))
+    model.add(Masking(mask_value=0, input_shape=input_shape))
     model.add(Bidirectional(LSTM(64,
                                  dropout=0.01, recurrent_dropout=0.01,
                                  return_sequences=True),
@@ -108,9 +108,9 @@ def to_sequence(dataset, y):
     return yc
 
 if __name__ == '__main__':
-    TRAIN_MODEL = False
-    SAVE_MODEL = False
-    DATASET_NAME = 'train_small'
+    TRAIN_MODEL = True
+    SAVE_MODEL = True
+    DATASET_NAME = 'train'
     HAS_LABEL = True
 
     dataset = load_dataset(DATASET_NAME, has_label=HAS_LABEL)
@@ -119,7 +119,7 @@ if __name__ == '__main__':
         x, y, dimension = process.group_by_sentence(dataset)
 
         model = build_model(dimension)
-        model, history = start_training(model, x, y)
+        model, history = start_training(model, x, y, epochs=50)
 
         if SAVE_MODEL:
             save_model(model)

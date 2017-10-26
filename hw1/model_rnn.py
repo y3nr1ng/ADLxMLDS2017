@@ -38,7 +38,7 @@ logger.setLevel(logging.DEBUG)
 dataset = reader.TIMIT('data')
 
 start = timer()
-dataset.load('train')
+dataset.load('train_small')
 end = timer()
 logger.debug('Data loaded in {0:.3f}s\n'.format(end-start))
 

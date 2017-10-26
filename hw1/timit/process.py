@@ -20,15 +20,7 @@ def group_by_sentence(dataset):
     # (speaker, sentence) association
     logger.info('{} speakers, {} sentences'.format(len(dataset.speakers),
                                                    len(dataset.sentences)))
-    sp_se_list = []
-    for speaker in dataset.speakers:
-        r_sp = dataset.data[dataset.data['speaker'] == speaker]
-        for sentence in dataset.sentences:
-            r_se = r_sp[r_sp['sentence'] == sentence]
-            if not r_se.empty:
-                logger.debug('({}, {})'.format(speaker, sentence))
-                sp_se_list.append((speaker, sentence))
-    n_samples = len(sp_se_list)
+    n_samples = len(dataset.instances)
     logger.info('{} available sentence (set) samples'.format(n_samples))
 
     n_features = dataset.x.shape[1]
@@ -40,7 +32,7 @@ def group_by_sentence(dataset):
     yp = np.full([n_samples, n_frames, n_classes], n_classes)
 
     # unpack instance sets and re-group the features
-    for index, (speaker, sentence) in enumerate(sp_se_list):
+    for index, (speaker, sentence) in enumerate(dataset.instances):
         r_sp = dataset.data['speaker'] == speaker
         r_se = dataset.data['sentence'] == sentence
         # sort by ascended frame IDs

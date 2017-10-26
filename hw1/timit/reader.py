@@ -92,11 +92,13 @@ class TIMIT:
         filename = '{}.ark'.format(self._name)
         path = os.path.join(src_dir, filename)
         with open(path, 'r') as fd:
+            instances = set()
             data = []
             for line in fd:
                 instance, _, features = line.strip().partition(' ')
                 instance = TIMIT.parse_instance_id(instance)
                 features = [float(x) for x in features.split()]
+                instances.add((instance[0], instance[1]))
                 data.append(instance + features)
         # generate feature labels
         n_feature = len(data[0])-3;
@@ -104,6 +106,8 @@ class TIMIT:
         headers = ['speaker', 'sentence', 'frame'] + headers;
         df = pd.DataFrame(data, columns=headers)
         df = TIMIT.instances_as_category(df, ['speaker', 'sentence'])
+        # save the speaker-sentence associations
+        self.instances = instances
         return df
 
     @staticmethod

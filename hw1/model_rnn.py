@@ -51,17 +51,16 @@ x_train, y_train, dimension = process.group_by_sentence(dataset)
 
 logger.info('Building model...')
 model = Sequential()
-model.add(Bidirectional(LSTM(256,
-                             dropout=0.2, recurrent_dropout=0.2,
+model.add(Bidirectional(LSTM(64,
+                             dropout=0.01, recurrent_dropout=0.01,
                              return_sequences=True),
                         input_shape=(n_timestpes, n_features)))
-model.add(LSTM(256, dropout=0.2, recurrent_dropout=0.2, return_sequences=True))
 model.add(TimeDistributed(Dense(n_classes, activation='softmax')))
 print(model.summary())
 model.compile(loss='categorical_crossentropy', optimizer='adam',
               metrics=[metrics.categorical_accuracy])
 
-batch_size = 64
+batch_size = 32
 
 logger.info('Training started')
 history = model.fit(x_train, y_train, validation_split=0.2,

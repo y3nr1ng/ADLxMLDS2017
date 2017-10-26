@@ -56,8 +56,7 @@ model.add(Bidirectional(LSTM(256, return_sequences=True,
                         input_shape=(n_timestpes, n_features)))
 model.add(TimeDistributed(Dense(n_classes, activation='softmax')))
 print(model.summary())
-optimizer = SGD(lr=0.00001, momentum=0.9)
-model.compile(loss='categorical_crossentropy', optimizer=optimizer,
+model.compile(loss='categorical_crossentropy', optimizer='adam',
               metrics=[metrics.categorical_accuracy])
 
 batch_size = 1

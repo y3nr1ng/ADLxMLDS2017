@@ -64,7 +64,7 @@ batch_size = 32
 
 logger.info('Training started')
 history = model.fit(x_train, y_train, validation_split=0.2,
-                    epochs=15, batch_size=batch_size, verbose=1)
+                    epochs=10, batch_size=batch_size, verbose=1)
 scores = model.evaluate(x_train, y_train, verbose=1)
 logger.info('{}: {:.2f}%'.format(model.metrics_names[1], scores[1]*100))
 

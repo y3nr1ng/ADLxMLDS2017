@@ -26,8 +26,10 @@ formatter = logging.Formatter('%(asctime)s %(levelname)-5s %(message)s',
                               '%Y-%m-%d %H:%M:%S')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
-# set the log level
+# set the global log level
 logger.setLevel(logging.DEBUG)
+# set TF log level
+tf.set_verbosity(logging.WARN)
 
 # load the dataset
 dataset = reader.TIMIT('data')

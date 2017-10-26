@@ -17,7 +17,7 @@ K.tensorflow_backend.set_session(tf_session)
 
 import numpy as np
 from keras.models import model_from_json, Sequential
-from keras.layers import Bidirectional, LSTM, TimeDistributed, Dense, GRU
+from keras.layers import Masking, Bidirectional, LSTM, TimeDistributed, Dense
 from keras.initializers import RandomUniform
 from keras.optimizers import SGD
 from keras import metrics
@@ -49,13 +49,15 @@ def load_dataset(name, folder='data', has_label=True):
 def build_model(dimension):
     # unpack specification from the dataset
     (n_timesteps, n_features, n_classes) = dimension
+    input_shape = (n_timesteps, n_features)
 
     logger.info('Building model...')
     model = Sequential()
+    model.add(Masking(mask_value=np.nan, input_shape=input_shape))
     model.add(Bidirectional(LSTM(64,
                                  dropout=0.01, recurrent_dropout=0.01,
                                  return_sequences=True),
-                            input_shape=(n_timesteps, n_features)))
+                            input_shape=input_shape))
     model.add(TimeDistributed(Dense(n_classes, activation='softmax')))
     print(model.summary())
     model.compile(loss='categorical_crossentropy', optimizer='adam',
@@ -69,8 +71,6 @@ def start_training(model, x, y, batch_size=32, epochs=10, validation_split=0.2):
 
     scores = model.evaluate(x, y, verbose=1)
     logger.info('{}: {:.2f}%'.format(model.metrics_names[1], scores[1]*100))
-
-    save_model(model)
 
     return model, history
 
@@ -100,27 +100,43 @@ def load_model(name='rnn'):
     logger.info('Model loaded from \'{}\''.format(name))
     return model, (n_timesteps, n_features)
 
+def to_sequence(dataset, y):
+    # remove consecutive elements
+    y = y[np.insert(np.diff(y).astype(np.bool), 0, True)]
+    # convert to characters
+    yc = ''.join([list(dataset.lut.values())[i] for i in y])
+    return yc
+
 if __name__ == '__main__':
     TRAIN_MODEL = False
-    set_name = 'train_small'
-    has_label = True
+    SAVE_MODEL = False
+    DATASET_NAME = 'train_small'
+    HAS_LABEL = True
 
-    dataset = load_dataset(set_name, has_label=has_label)
+    dataset = load_dataset(DATASET_NAME, has_label=HAS_LABEL)
 
     if TRAIN_MODEL:
         x, y, dimension = process.group_by_sentence(dataset)
 
         model = build_model(dimension)
         model, history = start_training(model, x, y)
+
+        if SAVE_MODEL:
+            save_model(model)
     else:
         model, dimension = load_model()
         # restrict the output by model shape
         x, y, dimension = process.group_by_sentence(dataset, dimension)
 
     y_predict = model.predict(x, verbose=2)
+    # convert from categorical to continuous
+    y_predict = np.argmax(y_predict, axis=2)
 
-    print('predict')
-    print(np.argmax(y_predict, axis=2)[0, :])
-    print()
-    print('ground truth')
-    print(np.argmax(y, axis=2)[0, :])
+    #DEBUG
+    y = np.argmax(y, axis=2)
+
+    # translate the prediction result
+    for i in range(len(dataset.instances)):
+        print('pred [{}]'.format(to_sequence(dataset, y_predict[i, :])))
+        print('trut [{}]'.format(to_sequence(dataset, y[i, :])))
+        print()

@@ -34,10 +34,10 @@ logger.addHandler(handler)
 # set the global log level
 logger.setLevel(logging.DEBUG)
 
-# load the dataset
-dataset = reader.TIMIT('data')
+if __name__ == '__main__':
+    dataset = reader.TIMIT('data')
 
-start = timer()
+    start = timer()
 dataset.load('train')
 end = timer()
 logger.debug('Data loaded in {0:.3f}s\n'.format(end-start))

@@ -4,8 +4,10 @@ Train a RNN on the TIMIT dataset.
 from timit import reader, process
 from timeit import default_timer as timer
 
-# limit TensorFlow to use specific device
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
+# limit TensorFlow to specific device
 tf_config = tf.ConfigProto(device_count={'GPU': 1})
 tf_session = tf.Session(config=tf_config)
 # assign the session for Keras
@@ -28,8 +30,6 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 # set the global log level
 logger.setLevel(logging.DEBUG)
-# set TF log level
-tf.set_verbosity(logging.WARN)
 
 # load the dataset
 dataset = reader.TIMIT('data')
@@ -50,17 +50,28 @@ logger.info('Building model...')
 model = Sequential()
 model.add(Bidirectional(LSTM(1024, return_sequences=True),
                         input_shape=(n_timestpes, n_features)))
-#model.add(LSTM(1024, return_sequences=True))
+model.add(LSTM(1024, return_sequences=True))
 model.add(TimeDistributed(Dense(n_classes, activation='relu')))
 print(model.summary())
 model.compile(loss='categorical_crossentropy', optimizer='adam',
               metrics=['accuracy'])
 
+batch_size = 16
+
 logger.info('Training started')
 history = model.fit(x_train, y_train,
-                    epochs=100, batch_size=32, verbose=1)
+                    epochs=100, batch_size=batch_size, verbose=1)
 scores = model.evaluate(x_train, y_train, verbose=1)
-logger.info('{}: {:.2f}%%'.format(model.metrics_names[1], scores[1]*100))
+logger.info('{}: {:.2f}%'.format(model.metrics_names[1], scores[1]*100))
+
+y_predict = model.predict(x_train, batch_size=batch_size, verbose=1)
+print(y_predict)
+
+print('predict')
+print(np.argmax(y_predict, axis=2))
+print()
+print('ground truth')
+print(np.argmax(y_train, axis=2))
 
 # serialize model to JSON
 model_file = model.to_json()

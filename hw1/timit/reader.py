@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import os
 import csv
 import collections
@@ -102,9 +103,12 @@ class TIMIT:
                 data.append(instance + features)
         # generate feature labels
         n_feature = len(data[0])-3;
-        headers = ['f{}'.format(x) for x in range(n_feature)]
-        headers = ['speaker', 'sentence', 'frame'] + headers;
+        f_headers = ['f{}'.format(x) for x in range(n_feature)]
+        headers = ['speaker', 'sentence', 'frame'] + f_headers;
         df = pd.DataFrame(data, columns=headers)
+        # features to float32
+        for c in f_headers:
+            df[c] = df[c].astype(np.float32)
         df = TIMIT.instances_as_category(df, ['speaker', 'sentence'])
         # save the speaker-sentence associations
         self.instances = instances

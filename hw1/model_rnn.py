@@ -18,6 +18,9 @@ K.tensorflow_backend.set_session(tf_session)
 import numpy as np
 from keras.models import Sequential
 from keras.layers import Bidirectional, LSTM, TimeDistributed, Dense, GRU
+from keras.initializers import RandomUniform
+from keras.optimizers import SGD
+from keras import metrics
 
 import logging
 logger = logging.getLogger()
@@ -35,7 +38,7 @@ logger.setLevel(logging.DEBUG)
 dataset = reader.TIMIT('data')
 
 start = timer()
-dataset.load('train_small')
+dataset.load('train')
 end = timer()
 logger.debug('Data loaded in {0:.3f}s\n'.format(end-start))
 
@@ -48,19 +51,20 @@ x_train, y_train, dimension = process.group_by_sentence(dataset)
 
 logger.info('Building model...')
 model = Sequential()
-model.add(Bidirectional(LSTM(1024, return_sequences=True),
+model.add(Bidirectional(LSTM(256, return_sequences=True,
+                             kernel_initializer=RandomUniform(minval=-0.1, maxval=0.1)),
                         input_shape=(n_timestpes, n_features)))
-model.add(LSTM(1024, return_sequences=True))
-model.add(TimeDistributed(Dense(n_classes, activation='relu')))
+model.add(TimeDistributed(Dense(n_classes, activation='softmax')))
 print(model.summary())
-model.compile(loss='categorical_crossentropy', optimizer='adam',
-              metrics=['accuracy'])
+optimizer = SGD(lr=0.00001, momentum=0.9)
+model.compile(loss='categorical_crossentropy', optimizer=optimizer,
+              metrics=[metrics.categorical_accuracy])
 
-batch_size = 16
+batch_size = 1
 
 logger.info('Training started')
 history = model.fit(x_train, y_train,
-                    epochs=100, batch_size=batch_size, verbose=1)
+                    epochs=15, batch_size=batch_size, verbose=1)
 scores = model.evaluate(x_train, y_train, verbose=1)
 logger.info('{}: {:.2f}%'.format(model.metrics_names[1], scores[1]*100))
 

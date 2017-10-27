@@ -1,0 +1,217 @@
+%%
+%% Copyright 2007, 2008, 2009 Elsevier Ltd
+%%
+%% This file is part of the 'Elsarticle Bundle'.
+%% ---------------------------------------------
+%%
+%% It may be distributed under the conditions of the LaTeX Project Public
+%% License, either version 1.2 of this license or (at your option) any
+%% later version.  The latest version of this license is in
+%%    http://www.latex-project.org/lppl.txt
+%% and version 1.2 or later is part of all distributions of LaTeX
+%% version 1999/12/01 or later.
+%%
+%% The list of all files belonging to the 'Elsarticle Bundle' is
+%% given in the file `manifest.txt'.
+%%
+
+%% Template article for Elsevier's document class `elsarticle'
+%% with numbered style bibliographic references
+%% SP 2008/03/01
+%%
+%%
+%%
+%% $Id: elsarticle-template-num.tex 4 2009-10-24 08:22:58Z rishi $
+%%
+%%
+\documentclass[final,3p]{elsarticle}
+
+%% Use the option review to obtain double line spacing
+%% \documentclass[preprint,review,12pt]{elsarticle}
+
+%% Use the options 1p,twocolumn; 3p; 3p,twocolumn; 5p; or 5p,twocolumn
+%% for a journal layout:
+%% \documentclass[final,1p,times]{elsarticle}
+%% \documentclass[final,1p,times,twocolumn]{elsarticle}
+%% \documentclass[final,3p,times]{elsarticle}
+%% \documentclass[final,3p,times,twocolumn]{elsarticle}
+%% \documentclass[final,5p,times]{elsarticle}
+%% \documentclass[final,5p,times,twocolumn]{elsarticle}
+
+\usepackage{hyperref}
+\usepackage[capitalize]{cleveref}
+
+%% if you use PostScript figures in your article
+%% use the graphics package for simple commands
+%% \usepackage{graphics}
+%% or use the graphicx package for more complicated commands
+\usepackage{graphicx}
+%% or use the epsfig package if you prefer to use the old commands
+%% \usepackage{epsfig}
+
+\usepackage{caption,subcaption}
+\usepackage{float}
+
+%% The amssymb package provides various useful mathematical symbols
+\usepackage{amssymb}
+%% The amsthm package provides extended theorem environments
+%% \usepackage{amsthm}
+
+%% The lineno packages adds line numbers. Start line numbering with
+%% \begin{linenumbers}, end it with \end{linenumbers}. Or switch it on
+%% for the whole article with \linenumbers after \end{frontmatter}.
+%% \usepackage{lineno}
+\usepackage{amsmath}
+\usepackage{xfrac}
+
+% Modify citation style.
+\usepackage[numbers]{natbib}
+
+% Packages for custom table views.
+% The multirow package provides merged row cells, while booktabs allows customizing the lines.
+\usepackage{multirow, booktabs}
+% These packages allow colors in table.
+\usepackage{color, colortbl}
+
+% Chinese support
+\usepackage{xeCJK}
+\setCJKmainfont{Lantinghei TC}
+
+%% natbib.sty is loaded by default. However, natbib options can be
+%% provided with \biboptions{...} command. Following options are
+%% valid:
+
+%%   round  -  round parentheses are used (default)
+%%   square -  square brackets are used   [option]
+%%   curly  -  curly braces are used      {option}
+%%   angle  -  angle brackets are used    <option>
+%%   semicolon  -  multiple citations separated by semi-colon
+%%   colon  - same as semicolon, an earlier confusion
+%%   comma  -  separated by comma
+%%   numbers-  selects numerical citations
+%%   super  -  numerical citations as superscripts
+%%   sort   -  sorts multiple citations according to order in ref. list
+%%   sort&compress   -  like sort, but also compresses numerical citations
+%%   compress - compresses without sorting
+%%
+%% \biboptions{comma,round}
+
+% \biboptions{}
+
+\journal{LS1012 General Biology Lab, 106-1}
+
+% adjust the footer
+\makeatletter
+\def\ps@pprintTitle{%
+ \let\@oddhead\@empty%
+ \let\@evenhead\@oddhead
+ \def\@oddfoot{\centerline{\thepage}}%
+ \let\@evenfoot\@oddfoot}
+\makeatother
+
+% custom color
+\definecolor{Gray}{gray}{0.9}
+
+\begin{document}
+
+\begin{frontmatter}
+
+\title{作業一 Sequence Labeling}
+
+\author{劉彥廷~B03902036}
+
+\end{frontmatter}
+
+%%
+%% Start line numbering here if you want
+%%
+% \linenumbers
+
+\section{模型敘述}	
+	
+	\subsection{RNN}
+		\begin{figure}[H]
+			\centering
+			\includegraphics[width=0.5\textwidth]{images/rnn_mfcc}
+			\caption{繳交的 RNN 模型} \label{fig:rnn}
+		\end{figure}
+		Input Layer 使用了以 0 作為遮罩的 Masking Layer 讓模型忽略所有使用 0 在特徵維度進行 padding 的 frames，亦即，如果一個句子長度不足 777 個 frames，會提供各個維度特徵皆為 0 的 frames 來補足。
+		
+		整體設計上依照作業規格的投影片所指示的 LSTM，總計兩層 Bidirectional 的 LSTM。
+		兩層各自有一組的 forward 與 backward 層，各組的單元數分別為 128 $\times$ 777 與 64 $\times$ 777。
+		其中 777 這個數字乃為了滿足訓練的資料組最長的句子有 777 個 frames。
+		
+		Output Layer 由一層 Dense Layer 構成，裡頭的單元數恰好吻合 phones 的數量（48），activation 的方式為 softmax。
+		
+	\subsection{RNN + CNN}
+		TBA
+		
+\section{優化方式}
+	\subsection{策略}
+		本次作業採取的策略為
+		\begin{enumerate}
+			\item 使用 MFCC 與預設的 batch size（32）以及論文 \cite{Graves_2005} 所採用的 10 個 epochs，但選用不同的模型。
+			\item 在參考過 RNN 與 LSTM（在 Keras 當中的分類）的 framw-wise 準確率以後，選用 LSTM（爾後增加了 Bidirectional Wrapper）。
+			\item 調整 optimizer 與初始化的 kernel（最後沒有依照論文採用的 RandomUniform），並調整 batch size 與 epochs 大小，觀察 loss 變化與 GPU 使用率和訓練時間。
+			\item 反覆上述步驟。 
+		\end{enumerate}
+		
+		在這過程當中並沒有使用系統性的在 hyperparameter 的空間（從策略當中，可以調整的主要為 batch size、epochs 與初始化的 kernel）當中搜尋最佳值，僅人工的固定間隔取樣（例：epochs 以 10 為單位從 10 調整到 100 觀察結果）。
+	
+	\subsection{嘗試過的方法}
+		本次作業裡頭嘗試過了
+		\begin{itemize}
+			\item 1 到 3 層的 GRU
+			\item 1 到 3 層的 LSTM
+			\item 2 層 LSTM 與 Bidirectional LSTM
+			\item Bidirectional LSTM 使用 SGD 與 Adam 兩種不同的 optimizer
+			\item Bidirectional LSTM 使用亂數（範圍從 -0.1 到 0.1）與全為 0
+		\end{itemize}	
+		
+		最後決定了維持使用 \cref{fig:rnn} 這個模型基於跨過 baseline 且 50 個 epochs 的訓練時間約莫為 1 小時，允許我嘗試多種 hyperparameter 的設置（batch size、epochs）。
+		
+\section{結果}
+	\subsection{fbank 與 mfcc 比較}
+		filter bank 的計算緣起於聲音信號的自然特徵（由不同頻率所組成），合併上人類耳蝸的樣式；MFCC 源起於某些演算法的先天限制，而需要使用 DCT 對 filter bank 的係數做 decorrelate。
+		根據 \cite{SpeechPr91:online} 的建議，如果演算法不會受到信號當中彼此高度耦合的現象影響的話，可以選用 filter bank，反之則會建議使用 MFCC。
+		從實驗結果當中，在固定模型與 hyperparameters 的情況下，fbank 的結果總會比 MFCC 差了將近 50\% 的 frame-wise 準確率（79\% 與 50\% 的準確率差異）。
+		考慮到我們使用了 LSTM 且使用了 Time Distributed Wrapper 讓模型可以針對時序信號自適應，信號本身隨時間的相依性可能會造成模型誤判結果（因為時間上的連續已經在模型當中被考慮了），故 MFCC 是較佳的選擇。
+		
+	\subsection{epochs 數}
+	
+	\subsection{模型}
+		
+%% References
+%%
+%% Following citation commands can be used in the body text:
+%% Usage of \cite is as follows:
+%%   \cite{key}         ==>>  [#]
+%%   \cite[chap. 2]{key} ==>> [#, chap. 2]
+%%
+
+%% References with bibTeX database:
+\bibliographystyle{apa}
+% \bibliographystyle{elsarticle-num} 
+% \bibliographystyle{elsarticle-harv}
+% \bibliographystyle{elsarticle-num-names}
+% \bibliographystyle{model1a-num-names}
+% \bibliographystyle{model1b-num-names}
+% \bibliographystyle{model1c-num-names}
+% \bibliographystyle{model1-num-names}
+% \bibliographystyle{model2-names}
+% \bibliographystyle{model3a-num-names}
+% \bibliographystyle{model3-num-names}
+% \bibliographystyle{model4-names}
+% \bibliographystyle{model5-names}
+% \bibliographystyle{model6-num-names}
+
+\section{參考文獻}
+\bibliography{reference}
+
+%% The Appendices part is started with the command \appendix;
+%% appendix sections are then done as normal sections
+% Have the appendices start with a new page.
+%\newpage
+%\appendix
+	
+\end{document}

@@ -17,7 +17,7 @@ K.tensorflow_backend.set_session(tf_session)
 
 import numpy as np
 from keras.models import model_from_json, Sequential
-from keras.layers import Masking, Bidirectional, LSTM, TimeDistributed, Dense
+from keras.layers import Masking, Bidirectional, LSTM, TimeDistributed, Dense, Conv1D
 from keras.initializers import RandomUniform
 from keras.optimizers import SGD
 from keras import metrics
@@ -54,10 +54,11 @@ def build_model(dimension):
     logger.info('Building model...')
     model = Sequential()
     model.add(Masking(mask_value=0, input_shape=input_shape))
+    model.add(TimeDistributed(Conv1D(128, 8, padding='same', activation='relu'),
+                              input_shape=input_shape))
     model.add(Bidirectional(LSTM(128,
                                  dropout=0.2, recurrent_dropout=0.2,
-                                 return_sequences=True),
-                            input_shape=input_shape))
+                                 return_sequences=True)))
     model.add(Bidirectional(LSTM(64,
                                  dropout=0.2, recurrent_dropout=0.2,
                                  return_sequences=True)))

@@ -67,7 +67,7 @@ def build_model(dimension):
                   metrics=[metrics.categorical_accuracy])
     return model
 
-def start_training(model, x, y, batch_size=32, epochs=10, validation_split=0.1):
+def train(model, x, y, batch_size=32, epochs=10, validation_split=0.1):
     logger.info('Training started')
     history = model.fit(x, y, validation_split=validation_split,
                         epochs=epochs, batch_size=batch_size, verbose=1)
@@ -101,18 +101,22 @@ def load_model(name='rnn'):
     return model, (n_timesteps, n_features)
 
 if __name__ == '__main__':
-    TRAIN_MODEL = True
+    TRAIN_MODEL = False
+    REUSE_MODEL = True
     SAVE_MODEL = True
-    DATASET_NAME = 'train'
-    HAS_LABEL = True
+    DATASET_NAME = 'test'
+    HAS_LABEL = False
 
     dataset = load_dataset(DATASET_NAME, has_label=HAS_LABEL)
 
     if TRAIN_MODEL:
         x, y, dimension = process.group_by_sentence(dataset)
 
-        model = build_model(dimension)
-        model, history = start_training(model, x, y, batch_size=64, epochs=15)
+        if REUSE_MODEL:
+            model, dimension = load_model()
+        else:
+            model = build_model(dimension)
+        model, history = train(model, x, y, batch_size=64, epochs=10)
 
         if SAVE_MODEL:
             save_model(model)

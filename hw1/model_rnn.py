@@ -103,8 +103,8 @@ def load_model(name='rnn'):
 if __name__ == '__main__':
     TRAIN_MODEL = False
     SAVE_MODEL = False
-    DATASET_NAME = 'test'
-    HAS_LABEL = False
+    DATASET_NAME = 'train_small'
+    HAS_LABEL = True
 
     dataset = load_dataset(DATASET_NAME, has_label=HAS_LABEL)
 
@@ -122,24 +122,28 @@ if __name__ == '__main__':
         x, y, dimension = process.group_by_sentence(dataset, dimension)
 
     yp = model.predict(x, verbose=2)
-    yp = np.argmax(y, axis=2)
+    yp = np.argmax(yp, axis=2)
 
     n_samples = len(dataset.instances)
     if HAS_LABEL:
         scores = model.evaluate(x, y, verbose=1)
         logger.info('{}: {:.2f}%'.format(model.metrics_names[1], scores[1]*100))
 
+        # convert back to continuous categoy
+        y = np.argmax(y, axis=2)
+
         avg_edit_dist = 0
         for i in range(n_samples):
             sp = process.to_sequence(dataset, yp[i, :])
             st = process.to_sequence(dataset, y[i, :])
-            average_edit_dist += process.edit_distance(sp, st)
+            avg_edit_dist += process.edit_distance(sp, st)
         avg_edit_dist /= n_samples
         logger.info('Avg edit dist = {:.3f}'.format(avg_edit_dist))
     else:
         with open('result.csv', 'w') as fd:
             fd.write('id,phone_sequence\n')
             for i, instance in enumerate(dataset.instances):
-                logger.debug('[{}] {}'.format(i, instance))
+                instance_id = '{}_{}'.format(instance[0], instance[1])
+                logger.debug('[{}] {}'.format(i, instance_id))
                 sp = process.to_sequence(dataset, yp[i, :])
-                fd.write('{},{}\n'.format(instance, sp))
+                fd.write('{},{}\n'.format(instance_id, sp))

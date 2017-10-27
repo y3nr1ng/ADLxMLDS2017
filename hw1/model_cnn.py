@@ -53,9 +53,8 @@ def build_model(dimension):
 
     logger.info('Building model...')
     model = Sequential()
-    model.add(Masking(mask_value=0, input_shape=input_shape))
-    model.add(TimeDistributed(Conv1D(128, 8, padding='same', activation='relu'),
-                              input_shape=input_shape))
+    #model.add(Masking(mask_value=0, input_shape=input_shape))
+    model.add(Conv1D(128, 8, padding='same', activation='relu', input_shape=input_shape))
     model.add(Bidirectional(LSTM(128,
                                  dropout=0.2, recurrent_dropout=0.2,
                                  return_sequences=True)))
@@ -120,7 +119,7 @@ if __name__ == '__main__':
             model, dimension = load_model(name=MODEL_NAME)
         else:
             model = build_model(dimension)
-        model, history = train(model, x, y, batch_size=64, epochs=25)
+        model, history = train(model, x, y, batch_size=64, epochs=100)
 
         if SAVE_MODEL:
             save_model(model, name=MODEL_NAME)

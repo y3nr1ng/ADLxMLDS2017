@@ -1,6 +1,8 @@
 import numpy as np
 from keras.utils import to_categorical
 
+from itertools import groupby
+
 import logging
 logger = logging.getLogger()
 
@@ -54,3 +56,30 @@ def group_by_sentence(dataset, dimension=None):
             yp[index, :n_rows, :] = to_categorical(r_fr['label'].values, n_classes)
 
     return xp, yp, (n_frames, n_features, n_classes)
+
+def to_sequence(dataset, y):
+    # convert to characters
+    yc = [list(dataset.lut.values())[i] for i in y]
+    # remove consecutive elements and join as a string sequence
+    yc = [i for i, _ in groupby(yc)]
+    # remove leading and trailing silence
+    sil = dataset.lut['sil']
+    begin = 1 if yc[0] == sil else 0
+    end = -1 if yc[-1] == sil else None
+    yc[:] = yc[slice(begin, end)]
+    # return the string sequence
+    return ''.join(yc)
+
+def edit_distance(s1, s2):
+    if len(s1) > len(s2):
+        s1, s2 = s2, s1
+    distances = range(len(s1)+1)
+    for i2, c2 in enumerate(s2):
+        _distances = [i2+1]
+        for i1, c1 in enumerate(s1):
+            if c1 == c2:
+                _distances.append(distances[i1])
+            else:
+                _distances.append(1+min((distances[i1], distances[i1+1], _distances[-1])))
+        distances = _distances
+    return distances[-1]

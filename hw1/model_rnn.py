@@ -100,17 +100,10 @@ def load_model(name='rnn'):
     logger.info('Model loaded from \'{}\''.format(name))
     return model, (n_timesteps, n_features)
 
-def to_sequence(dataset, y):
-    # remove consecutive elements
-    y = y[np.insert(np.diff(y).astype(np.bool), 0, True)]
-    # convert to characters
-    yc = ''.join([list(dataset.lut.values())[i] for i in y])
-    return yc
-
 if __name__ == '__main__':
     TRAIN_MODEL = False
     SAVE_MODEL = False
-    DATASET_NAME = 'train'
+    DATASET_NAME = 'train_small'
     HAS_LABEL = True
 
     dataset = load_dataset(DATASET_NAME, has_label=HAS_LABEL)
@@ -140,7 +133,11 @@ if __name__ == '__main__':
     y = np.argmax(y, axis=2)
 
     # dump the first 5 prediction results
-    for i in range(5):
-        print('pred [{}]'.format(to_sequence(dataset, y_predict[i, :])))
-        print('trut [{}]'.format(to_sequence(dataset, y[i, :])))
-        print()
+    n_samples = len(dataset.instances)
+    average_edit_dist = 0
+    for i in range(n_samples):
+        sp = process.to_sequence(dataset, y_predict[i, :])
+        st = process.to_sequence(dataset, y[i, :])
+        average_edit_dist += process.edit_distance(sp, st)
+    average_edit_dist /= n_samples
+    logger.info('Average edit distance = {}'.format(average_edit_dist))

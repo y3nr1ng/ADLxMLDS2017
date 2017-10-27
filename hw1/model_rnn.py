@@ -103,7 +103,7 @@ def load_model(name='rnn'):
 if __name__ == '__main__':
     TRAIN_MODEL = False
     SAVE_MODEL = False
-    DATASET_NAME = 'train_small'
+    DATASET_NAME = 'train'
     HAS_LABEL = True
 
     dataset = load_dataset(DATASET_NAME, has_label=HAS_LABEL)
@@ -140,4 +140,4 @@ if __name__ == '__main__':
         st = process.to_sequence(dataset, y[i, :])
         average_edit_dist += process.edit_distance(sp, st)
     average_edit_dist /= n_samples
-    logger.info('Average edit distance = {}'.format(average_edit_dist))
+    logger.info('Average edit distance = {:.3f}'.format(average_edit_dist))

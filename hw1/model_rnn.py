@@ -108,8 +108,8 @@ def to_sequence(dataset, y):
     return yc
 
 if __name__ == '__main__':
-    TRAIN_MODEL = True
-    SAVE_MODEL = True
+    TRAIN_MODEL = False
+    SAVE_MODEL = False
     DATASET_NAME = 'train'
     HAS_LABEL = True
 
@@ -128,6 +128,10 @@ if __name__ == '__main__':
         # restrict the output by model shape
         x, y, dimension = process.group_by_sentence(dataset, dimension)
 
+    #DEBUG
+    scores = model.evaluate(x, y, verbose=1)
+    logger.info('{}: {:.2f}%'.format(model.metrics_names[1], scores[1]*100))
+
     y_predict = model.predict(x, verbose=2)
     # convert from categorical to continuous
     y_predict = np.argmax(y_predict, axis=2)
@@ -135,8 +139,8 @@ if __name__ == '__main__':
     #DEBUG
     y = np.argmax(y, axis=2)
 
-    # translate the prediction result
-    for i in range(len(dataset.instances)):
+    # dump the first 5 prediction results
+    for i in range(5):
         print('pred [{}]'.format(to_sequence(dataset, y_predict[i, :])))
         print('trut [{}]'.format(to_sequence(dataset, y[i, :])))
         print()

@@ -55,11 +55,11 @@ def build_model(dimension):
     model = Sequential()
     model.add(Masking(mask_value=0, input_shape=input_shape))
     model.add(Bidirectional(LSTM(128,
-                                 dropout=0.1, recurrent_dropout=0.1,
+                                 dropout=0.2, recurrent_dropout=0.2,
                                  return_sequences=True),
                             input_shape=input_shape))
     model.add(Bidirectional(LSTM(64,
-                                 dropout=0.1, recurrent_dropout=0.1,
+                                 dropout=0.2, recurrent_dropout=0.2,
                                  return_sequences=True)))
     model.add(TimeDistributed(Dense(n_classes, activation='softmax')))
     print(model.summary())
@@ -67,13 +67,10 @@ def build_model(dimension):
                   metrics=[metrics.categorical_accuracy])
     return model
 
-def start_training(model, x, y, batch_size=32, epochs=10, validation_split=0.2):
+def start_training(model, x, y, batch_size=32, epochs=10, validation_split=0.1):
     logger.info('Training started')
     history = model.fit(x, y, validation_split=validation_split,
                         epochs=epochs, batch_size=batch_size, verbose=1)
-
-    scores = model.evaluate(x, y, verbose=1)
-    logger.info('{}: {:.2f}%'.format(model.metrics_names[1], scores[1]*100))
 
     return model, history
 
@@ -115,7 +112,7 @@ if __name__ == '__main__':
         x, y, dimension = process.group_by_sentence(dataset)
 
         model = build_model(dimension)
-        model, history = start_training(model, x, y, batch_size=128, pochs=100)
+        model, history = start_training(model, x, y, batch_size=64, epochs=15)
 
         if SAVE_MODEL:
             save_model(model)
@@ -129,7 +126,7 @@ if __name__ == '__main__':
 
     n_samples = len(dataset.instances)
     if HAS_LABEL:
-        scores = model.evaluate(x, y, verbose=1)
+        scores = model.evaluate(x, y, batch_size=256, verbose=1)
         logger.info('{}: {:.2f}%'.format(model.metrics_names[1], scores[1]*100))
 
         # convert back to continuous categoy
@@ -141,7 +138,7 @@ if __name__ == '__main__':
             st = process.to_sequence(dataset, y[i, :])
             avg_edit_dist += process.edit_distance(sp, st)
         avg_edit_dist /= n_samples
-        logger.info('Avg edit dist = {:.3f}'.format(avg_edit_dist))
+        logger.info('Average edit distance = {:.3f}'.format(avg_edit_dist))
     else:
         with open('result.csv', 'w') as fd:
             fd.write('id,phone_sequence\n')

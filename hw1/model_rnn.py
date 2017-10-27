@@ -34,11 +34,11 @@ logger.addHandler(handler)
 # set the global log level
 logger.setLevel(logging.DEBUG)
 
-def load_dataset(name, folder='data', has_label=True):
+def load_dataset(name, folder='data', model='mfcc', has_label=True):
     dataset = reader.TIMIT(folder)
     # load the raw data
     start = timer()
-    dataset.load(name, has_label=has_label)
+    dataset.load(name, model=model, has_label=has_label)
     end = timer()
     logger.debug('Data loaded in {0:.3f}s\n'.format(end-start))
 
@@ -101,27 +101,30 @@ def load_model(name='rnn'):
     return model, (n_timesteps, n_features)
 
 if __name__ == '__main__':
-    TRAIN_MODEL = False
-    REUSE_MODEL = True
+    TRAIN_MODEL = True
+    REUSE_MODEL = False
     SAVE_MODEL = True
-    DATASET_NAME = 'test'
-    HAS_LABEL = False
+    DATASET_NAME = 'train'
+    HAS_LABEL = True
 
-    dataset = load_dataset(DATASET_NAME, has_label=HAS_LABEL)
+    MODEL_TYPE = 'fbank'
+    MODEL_NAME = 'rnn_{}'.format(MODEL_TYPE)
+
+    dataset = load_dataset(DATASET_NAME, model=MODEL_TYPE, has_label=HAS_LABEL)
 
     if TRAIN_MODEL:
         x, y, dimension = process.group_by_sentence(dataset)
 
         if REUSE_MODEL:
-            model, dimension = load_model()
+            model, dimension = load_model(name=MODEL_NAME)
         else:
             model = build_model(dimension)
-        model, history = train(model, x, y, batch_size=64, epochs=10)
+        model, history = train(model, x, y, batch_size=64, epochs=25)
 
         if SAVE_MODEL:
-            save_model(model)
+            save_model(model, name=MODEL_NAME)
     else:
-        model, dimension = load_model()
+        model, dimension = load_model(name=MODEL_NAME)
         # restrict the output by model shape
         x, y, dimension = process.group_by_sentence(dataset, dimension)
 

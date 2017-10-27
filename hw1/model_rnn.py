@@ -103,8 +103,8 @@ def load_model(name='rnn'):
 if __name__ == '__main__':
     TRAIN_MODEL = False
     SAVE_MODEL = False
-    DATASET_NAME = 'train'
-    HAS_LABEL = True
+    DATASET_NAME = 'test'
+    HAS_LABEL = False
 
     dataset = load_dataset(DATASET_NAME, has_label=HAS_LABEL)
 
@@ -121,23 +121,25 @@ if __name__ == '__main__':
         # restrict the output by model shape
         x, y, dimension = process.group_by_sentence(dataset, dimension)
 
-    #DEBUG
-    scores = model.evaluate(x, y, verbose=1)
-    logger.info('{}: {:.2f}%'.format(model.metrics_names[1], scores[1]*100))
+    yp = model.predict(x, verbose=2)
+    yp = np.argmax(y, axis=2)
 
-    y_predict = model.predict(x, verbose=2)
-    # convert from categorical to continuous
-    y_predict = np.argmax(y_predict, axis=2)
-
-    #DEBUG
-    y = np.argmax(y, axis=2)
-
-    # dump the first 5 prediction results
     n_samples = len(dataset.instances)
-    average_edit_dist = 0
-    for i in range(n_samples):
-        sp = process.to_sequence(dataset, y_predict[i, :])
-        st = process.to_sequence(dataset, y[i, :])
-        average_edit_dist += process.edit_distance(sp, st)
-    average_edit_dist /= n_samples
-    logger.info('Average edit distance = {:.3f}'.format(average_edit_dist))
+    if HAS_LABEL:
+        scores = model.evaluate(x, y, verbose=1)
+        logger.info('{}: {:.2f}%'.format(model.metrics_names[1], scores[1]*100))
+
+        avg_edit_dist = 0
+        for i in range(n_samples):
+            sp = process.to_sequence(dataset, yp[i, :])
+            st = process.to_sequence(dataset, y[i, :])
+            average_edit_dist += process.edit_distance(sp, st)
+        avg_edit_dist /= n_samples
+        logger.info('Avg edit dist = {:.3f}'.format(avg_edit_dist))
+    else:
+        with open('result.csv', 'w') as fd:
+            fd.write('id,phone_sequence\n')
+            for i, instance in enumerate(dataset.instances):
+                logger.debug('[{}] {}'.format(i, instance))
+                sp = process.to_sequence(dataset, yp[i, :])
+                fd.write('{},{}\n'.format(instance, sp))

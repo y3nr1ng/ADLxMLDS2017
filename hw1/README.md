@@ -9,7 +9,21 @@ conda create --name adl --file package_list.txt
 ```
 assuming user already have a functional CUDA environment.
 
-2. Run the script!
+2. Activate the environment 
+```
+activate adl
+```
+for power users in Windows our *nix environment, please use
+```
+source activate adl
+```
+If your environment is not configured Keras to use TensorFlow for any reason, please do so by setting the environment variable
+```
+KERAS_BACKEND=tensorflow
+```
+for your shell after the activation of the `conda` environment.
+
+3. Run the script!
 ```
 ./hw1_best.sh [input directory] [output filename]
 ```

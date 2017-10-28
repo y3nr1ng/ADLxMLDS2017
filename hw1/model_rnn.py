@@ -22,6 +22,9 @@ from keras.initializers import RandomUniform
 from keras.optimizers import SGD
 from keras import metrics
 
+import argparse
+import os.path
+
 import logging
 logger = logging.getLogger()
 
@@ -34,11 +37,11 @@ logger.addHandler(handler)
 # set the global log level
 logger.setLevel(logging.DEBUG)
 
-def load_dataset(name, folder='data', has_label=True):
+def load_dataset(name, folder='data', model='mfcc', has_label=True):
     dataset = reader.TIMIT(folder)
     # load the raw data
     start = timer()
-    dataset.load(name, has_label=has_label)
+    dataset.load(name, model=model, has_label=has_label)
     end = timer()
     logger.debug('Data loaded in {0:.3f}s\n'.format(end-start))
 
@@ -101,27 +104,44 @@ def load_model(name='rnn'):
     return model, (n_timesteps, n_features)
 
 if __name__ == '__main__':
-    TRAIN_MODEL = False
-    REUSE_MODEL = True
-    SAVE_MODEL = True
-    DATASET_NAME = 'test'
-    HAS_LABEL = False
+    parser = argparse.ArgumentParser(description='Train a RNN on the TIMIT dataset.')
+    parser.add_argument('folder', type=str,
+                        help='folder of the datasets')
+    parser.add_argument('dataset', type=str,
+                        help='name of the dataset to use')
+    parser.add_argument('--feature', '-f', choices=['mfcc', 'fbank'],
+                        default='mfcc',
+                        help='pre-processed feature to use')
+    parser.add_argument('--output', '-o', type=str,
+                        default='result.csv',
+                        help='filename of the result')
+    parser.add_argument('--mode', '-m', choices=['train', 'infer'],
+                        default='infer',
+                        help='mode of operation')
+    parser.add_argument('--dry', '-d', action='store_true',
+                        help='dry run only, the model is not saved')
+    parser.add_argument('--reuse', '-r', action='store_true',
+                        help='train upon existing model if exists')
+    args = parser.parse_args()
 
-    dataset = load_dataset(DATASET_NAME, has_label=HAS_LABEL)
+    model_name = 'rnn_{}'.format(args.feature)
 
-    if TRAIN_MODEL:
+    has_label = args.mode == 'train'
+    dataset = load_dataset(args.dataset, model=args.feature, has_label=has_label)
+
+    if args.mode == 'train':
         x, y, dimension = process.group_by_sentence(dataset)
 
-        if REUSE_MODEL:
-            model, dimension = load_model()
+        if args.reuse and os.path.exists(model_name):
+            model, dimension = load_model(name=model_name)
         else:
             model = build_model(dimension)
-        model, history = train(model, x, y, batch_size=64, epochs=10)
+        model, history = train(model, x, y, batch_size=64, epochs=25)
 
-        if SAVE_MODEL:
-            save_model(model)
-    else:
-        model, dimension = load_model()
+        if not args.dry:
+            save_model(model, name=model_name)
+    elif args.mode == 'infer':
+        model, dimension = load_model(name=model_name)
         # restrict the output by model shape
         x, y, dimension = process.group_by_sentence(dataset, dimension)
 
@@ -129,7 +149,7 @@ if __name__ == '__main__':
     yp = np.argmax(yp, axis=2)
 
     n_samples = len(dataset.instances)
-    if HAS_LABEL:
+    if has_label:
         scores = model.evaluate(x, y, batch_size=256, verbose=1)
         logger.info('{}: {:.2f}%'.format(model.metrics_names[1], scores[1]*100))
 
@@ -144,7 +164,7 @@ if __name__ == '__main__':
         avg_edit_dist /= n_samples
         logger.info('Average edit distance = {:.3f}'.format(avg_edit_dist))
     else:
-        with open('result.csv', 'w') as fd:
+        with open(args.output, 'w') as fd:
             fd.write('id,phone_sequence\n')
             for i, instance in enumerate(dataset.instances):
                 instance_id = '{}_{}'.format(instance[0], instance[1])

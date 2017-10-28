@@ -101,11 +101,11 @@ def load_model(name='rnn'):
     return model, (n_timesteps, n_features)
 
 if __name__ == '__main__':
-    TRAIN_MODEL = True
+    TRAIN_MODEL = False
     REUSE_MODEL = False
     SAVE_MODEL = True
-    DATASET_NAME = 'train'
-    HAS_LABEL = True
+    DATASET_NAME = 'test'
+    HAS_LABEL = False
 
     MODEL_TYPE = 'mfcc'
     MODEL_NAME = 'cnn_{}'.format(MODEL_TYPE)

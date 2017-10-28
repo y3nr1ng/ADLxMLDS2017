@@ -1,5 +1,5 @@
 """
-Train a RNN on the TIMIT dataset.
+Train a CNN + RNN on the TIMIT dataset.
 """
 from timit import reader, process
 from timeit import default_timer as timer
@@ -17,10 +17,13 @@ K.tensorflow_backend.set_session(tf_session)
 
 import numpy as np
 from keras.models import model_from_json, Sequential
-from keras.layers import Masking, Bidirectional, LSTM, TimeDistributed, Dense, Conv1D
+from keras.layers import Bidirectional, LSTM, TimeDistributed, Dense, Conv1D
 from keras.initializers import RandomUniform
 from keras.optimizers import SGD
 from keras import metrics
+
+import argparse
+import os.path
 
 import logging
 logger = logging.getLogger()
@@ -53,8 +56,8 @@ def build_model(dimension):
 
     logger.info('Building model...')
     model = Sequential()
-    #model.add(Masking(mask_value=0, input_shape=input_shape))
-    model.add(Conv1D(128, 8, padding='same', activation='relu', input_shape=input_shape))
+    model.add(Conv1D(128, 8, padding='same', activation='relu',
+                     input_shape=input_shape))
     model.add(Bidirectional(LSTM(128,
                                  dropout=0.2, recurrent_dropout=0.2,
                                  return_sequences=True)))
@@ -101,30 +104,44 @@ def load_model(name='rnn'):
     return model, (n_timesteps, n_features)
 
 if __name__ == '__main__':
-    TRAIN_MODEL = False
-    REUSE_MODEL = False
-    SAVE_MODEL = True
-    DATASET_NAME = 'test'
-    HAS_LABEL = False
+    parser = argparse.ArgumentParser(description='Train a RNN on the TIMIT dataset.')
+    parser.add_argument('folder', type=str,
+                        help='folder of the datasets')
+    parser.add_argument('dataset', type=str,
+                        help='name of the dataset to use')
+    parser.add_argument('--feature', '-f', choices=['mfcc', 'fbank'],
+                        default='mfcc',
+                        help='pre-processed feature to use')
+    parser.add_argument('--output', '-o', type=str,
+                        default='result.csv',
+                        help='filename of the result')
+    parser.add_argument('--mode', '-m', choices=['train', 'infer'],
+                        default='infer',
+                        help='mode of operation')
+    parser.add_argument('--dry', '-d', action='store_true',
+                        help='dry run only, the model is not saved')
+    parser.add_argument('--reuse', '-r', action='store_true',
+                        help='train upon existing model if exists')
+    args = parser.parse_args()
 
-    MODEL_TYPE = 'mfcc'
-    MODEL_NAME = 'cnn_{}'.format(MODEL_TYPE)
+    model_name = 'cnn_{}'.format(args.feature)
 
-    dataset = load_dataset(DATASET_NAME, model=MODEL_TYPE, has_label=HAS_LABEL)
+    has_label = args.mode == 'train'
+    dataset = load_dataset(args.dataset, model=args.feature, has_label=has_label)
 
-    if TRAIN_MODEL:
+    if args.mode == 'train':
         x, y, dimension = process.group_by_sentence(dataset)
 
-        if REUSE_MODEL:
-            model, dimension = load_model(name=MODEL_NAME)
+        if args.reuse and os.path.exists(model_name):
+            model, dimension = load_model(name=model_name)
         else:
             model = build_model(dimension)
-        model, history = train(model, x, y, batch_size=64, epochs=100)
+        model, history = train(model, x, y, batch_size=64, epochs=25)
 
-        if SAVE_MODEL:
-            save_model(model, name=MODEL_NAME)
-    else:
-        model, dimension = load_model(name=MODEL_NAME)
+        if not args.dry:
+            save_model(model, name=model_name)
+    elif args.mode == 'infer':
+        model, dimension = load_model(name=model_name)
         # restrict the output by model shape
         x, y, dimension = process.group_by_sentence(dataset, dimension)
 
@@ -132,7 +149,7 @@ if __name__ == '__main__':
     yp = np.argmax(yp, axis=2)
 
     n_samples = len(dataset.instances)
-    if HAS_LABEL:
+    if has_label:
         scores = model.evaluate(x, y, batch_size=256, verbose=1)
         logger.info('{}: {:.2f}%'.format(model.metrics_names[1], scores[1]*100))
 
@@ -147,7 +164,7 @@ if __name__ == '__main__':
         avg_edit_dist /= n_samples
         logger.info('Average edit distance = {:.3f}'.format(avg_edit_dist))
     else:
-        with open('result.csv', 'w') as fd:
+        with open(args.output, 'w') as fd:
             fd.write('id,phone_sequence\n')
             for i, instance in enumerate(dataset.instances):
                 instance_id = '{}_{}'.format(instance[0], instance[1])

@@ -4,7 +4,7 @@ Plot the Keras model as an image.
 from keras.models import model_from_json
 from keras.utils import plot_model
 
-MODEL_NAME = 'rnn_mfcc'
+MODEL_NAME = 'cnn_mfcc'
 
 with open('{}.json'.format(MODEL_NAME), 'r') as fd:
     model = model_from_json(fd.read())

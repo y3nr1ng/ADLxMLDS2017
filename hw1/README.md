@@ -7,3 +7,10 @@ The scripts were tested under Windows 7 64-bit, using CUDA 8 R2 with cuDNN 6.1 w
 ```
 conda create --name adl --file package_list.txt
 ```
+assuming user already have a functional CUDA environment.
+
+2. Run the script!
+```
+./hw1_best.sh [input directory] [output filename]
+```
+or any of the following: `hw1_cnn.sh`, `hw1_rnn.sh`

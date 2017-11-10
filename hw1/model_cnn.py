@@ -127,7 +127,7 @@ if __name__ == '__main__':
     model_name = 'cnn_{}'.format(args.feature)
 
     has_label = args.mode == 'train'
-    dataset = load_dataset(args.dataset, model=args.feature, has_label=has_label)
+    dataset = load_dataset(args.dataset, folder=args.folder, model=args.feature, has_label=has_label)
 
     if args.mode == 'train':
         x, y, dimension = process.group_by_sentence(dataset)

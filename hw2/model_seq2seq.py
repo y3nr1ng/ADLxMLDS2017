@@ -26,14 +26,14 @@ logger.addHandler(handler)
 # set the global log level
 logger.setLevel(logging.DEBUG)
 
-def build():
+def build(name):
     print('BUILDING')
 
-def train():
-    pass
+def train(model, epochs=200):
+    print('TRAIN')
 
-def evaluate():
-    pass
+def evaluate(model, x, y=None):
+    print('EVALUATE')
 
 def load(name, strict=False):
     """
@@ -65,7 +65,37 @@ def load(name, strict=False):
         logger.info('Model \'{}\' loaded'.format(name))
         return model
 
+def save(model, name):
+    """
+    Save the model to file.
+
+    Parameters
+    ----------
+    model: Keras Sequence
+        The actual model object.
+    name: str
+        Name of the model to save.
+    """
+    # serialize model
+    model_file = '{}.json'.format(name)
+    with open(model_file, 'w') as fd:
+        fd.write(model.to_json())
+    # serialize weights
+    weight_file = '{}.h5'.format(name)
+    model.save_weights(weight_file)
+
+    logger.info('Model saved as \'{}\''.format(name))
+
 def archive(name):
+    """
+    Archive the specified model to avoid overwrite. Last-access timestamps is
+    supplied as suffix for archive name.
+
+    Parameters
+    ----------
+    name: str
+        Name of the model file, without file extensions.
+    """
     model_file = '{}.json'.format(name)
     weight_file = '{}.h5'.format(name)
     for f in [model_file, weight_file]:
@@ -93,6 +123,8 @@ if __name__ == '__main__':
     # fine tune the parameters
     model_name = 's2s'
 
+    dataset = Video(args.folder, dtype=args.dataset)
+
     if args.mode == 'train':
         if not args.reuse:
             archive(model_name)
@@ -100,7 +132,12 @@ if __name__ == '__main__':
         # build the model from scratch if nothing is loaded
         if not model:
             model = build()
+        model = train(model)
     elif args.mode == 'infer':
         model = load(model_name, strict=True)
 
-    data = Video(args.folder, dtype=args.dataset)
+    #TODO use generator pattern
+    evaluate(model, dataset)
+
+    if not args.dry:
+        save(model, model_name)

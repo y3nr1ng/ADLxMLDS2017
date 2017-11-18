@@ -6,7 +6,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 # set Keras backend
 os.environ['KERAS_BACKEND'] = 'tensorflow'
 
-from keras.models import model_from_json, Sequential
+from keras.models import model_from_json
 
 import argparse
 from os import rename
@@ -26,11 +26,47 @@ logger.addHandler(handler)
 # set the global log level
 logger.setLevel(logging.DEBUG)
 
-def build(name):
-    print('BUILDING')
+import keras
+from keras.models import Model
+from keras.layers import Input, LSTM, Dense
 
-def train(model, epochs=200):
-    print('TRAIN')
+def build(name, **kwargs):
+    # number of features per frame
+    n_features = kwargs['n_features']
+    # number of words in the dictionary, one hot
+    n_words = kwargs['n_words']
+
+    # number of hidden dimensions
+    latent_dim = kwargs['latent_dim']
+
+    # encoder
+    enc_in = Input(shape=(None, n_features), name='features')
+    enc = LSTM(latent_dim, return_sequences=True)
+    enc_out = enc(enc_in)
+    # concat input
+    dec_in = Input(shape=(None, n_words), name='wordvec')
+    aux_in = keras.layers.concatenate([enc_out, dec_in])
+    # decoder
+    dec = LSTM(latent_dim, return_sequences=True)
+    dec_out = dec(aux_in)
+    # activate
+    dec_dense = Dense(n_words, activation='softmax')
+    dec_out = dec_dense(dec_out)
+
+    # create the model
+    model = Model([enc_in, dec_in], dec_out)
+    print(model.summary())
+
+    raise RuntimeError('Debug')
+
+    return model
+
+def train(model, dataset, batch_size=16, epochs=200, validation_split=0.2):
+    model.fit(dataset.x, dataset.y, validation_split=validation_split,
+              batch_size=batch_size, epcohs=epochs)
+
+def compile(model):
+    model.compile(optimizer='adam', loss='categorical_crossentropy')
 
 def evaluate(model, x, y=None):
     print('EVALUATE')
@@ -59,8 +95,6 @@ def load(name, strict=False):
             model = model_from_json(fd.read())
         # load weights
         model.load_weights(weight_file)
-        #TODO compile
-        # model.compile(...)
 
         logger.info('Model \'{}\' loaded'.format(name))
         return model
@@ -131,12 +165,13 @@ if __name__ == '__main__':
         model = load(model_name)
         # build the model from scratch if nothing is loaded
         if not model:
-            model = build()
+            model = build(model_name, n_features=4096, n_words=3000, latent_dim=128)
+        compile(model)
         model = train(model)
     elif args.mode == 'infer':
         model = load(model_name, strict=True)
+        compile(model)
 
-    #TODO use generator pattern
     evaluate(model, dataset)
 
     if not args.dry:

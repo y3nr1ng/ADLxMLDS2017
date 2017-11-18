@@ -34,32 +34,42 @@ class Video(object):
             raise ValueError('Invalid type of dataset')
 
     def _list_ids(self):
+        """
+        List wanted IDs from the *_id.txt file.
+
+        Return
+        ------
+        A list of designated IDs, noted that .avi extensions are not removed.
+        """
         # generate id file name
         prefix = self._dtype
         prefix = prefix[:-5] if self._dtype.endswith('_data') else prefix
-        id_file = '{}_id.txt'.format(prefix)
+        id_file = join(self._folder, '{}_id.txt'.format(prefix))
         # load ids from file if exists
         if isfile(id_file):
             with open(id_file, 'r') as fd:
-                self._ids = [line.rstrip('\n') for line in fd]
+                ids = [line.rstrip('\n') for line in fd]
         else:
             folder = join(self._folder, self._dtype, 'feat');
             file_list = [f for f in listdir(folder) if isfile(join(folder, f))]
             try:
                 # remove the file extension
-                self._ids = list(map(lambda s: s[:s.rindex('.npy')], file_list))
+                ids = list(map(lambda s: s[:s.rindex('.npy')], file_list))
             except ValueError:
                 logger.error('Invalid filename exists')
-        logger.info('{} IDs found'.format(len(self._ids)))
+        logger.info('{} IDs found'.format(len(ids)))
+        return ids
 
     def _load_data(self):
         # create empty dataset, nested dict
-        data = dict.fromkeys(self._ids, {})
+        data = dict.fromkeys(self._ids, {'captions': [], 'features': []})
 
         data = self._load_labels(data)
         data = self._load_features(data)
 
         raise RuntimeError("_load_data")
+
+        return data
 
     def _load_labels(self, data):
         """
@@ -68,21 +78,18 @@ class Video(object):
         # generate label file name
         prefix = self._dtype
         prefix = prefix[:-5] if self._dtype.endswith('_data') else prefix
-        label_file = '{}_label.json'.format(prefix)
+        label_file = join(self._folder, '{}_label.json'.format(prefix))
         # load ids from file if exists
         if isfile(label_file):
             with open(label_file, 'r') as fd:
-                labels = json.load(fd)
-            for label in labels:
-                label_id = label['id']
-                # only caption arrays from specified samples are saved
-                if label_id in data:
-                    data[label_id]['captions'] = label['caption']
+                for label in json.load(fd):
+                    label_id = label['id']
+                    # only caption arrays from specified samples are saved
+                    if label_id in data:
+                        data[label_id]['captions'] = label['caption']
+        return data
 
-        # format the input
-        pprint(labels[0])
-
-    def _load_features(self):
+    def _load_features(self, data):
         folder = join(self._folder, self._dtype, 'feat');
         #file_list = glob(os.path.join(folder, '*.npy'))
         file_list = join(folder, 'xBePrplM4OA_6_18.avi.npy')
@@ -90,6 +97,8 @@ class Video(object):
         data = np.load(file_list)
         pprint(data)
         print(data.shape)
+
+        return data
 
     def _build_dict(self):
         """

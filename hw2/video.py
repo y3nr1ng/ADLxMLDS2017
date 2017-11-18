@@ -195,11 +195,18 @@ class Video(object):
         return caption
 
     @property
-    def x(self):
+    def x_enc(self):
+        #TODO pad with decoder sequence
+        pass
+
+    @property
+    def x_dec(self):
+        #TODO pad with encoder sequence, with <bos>
         pass
 
     @property
     def y(self):
+        #TODO similar with x_dec, with <eos>
         pass
 
     @property

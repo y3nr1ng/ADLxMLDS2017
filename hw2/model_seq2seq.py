@@ -38,18 +38,17 @@ def build(**kwargs):
     # number of hidden dimensions
     latent_dim = kwargs['latent_dim']
 
-    # encoder
-    enc_in = Input(shape=(None, n_features), name='features')
-    enc = LSTM(latent_dim, return_sequences=True)
-    enc_out = enc(enc_in)
-    # concat input
-    dec_in = Input(shape=(None, n_words), name='wordvec')
-    aux_in = keras.layers.concatenate([enc_out, dec_in])
-    # decoder
-    dec = LSTM(latent_dim, return_sequences=True)
-    dec_out = dec(aux_in)
-    # activate
+    enc_in = Input(shape=(None, n_features))
+    enc_lstm = LSTM(latent_dim, return_state=True)
+    enc_out, state_h, state_c = enc_lstm(enc_in)
+
+    states = [state_h, state_c]
+
+    dec_in = Input(shape=(None, n_words))
+    dec_lstm = LSTM(latent_dim, return_sequences=True, return_state=True)
     dec_dense = Dense(n_words, activation='softmax')
+
+    dec_out, _, _ = dec_lstm(dec_in, initial_state=states)
     dec_out = dec_dense(dec_out)
 
     # create the model

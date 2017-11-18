@@ -30,12 +30,11 @@ import keras
 from keras.models import Model
 from keras.layers import Input, LSTM, Dense
 
-def build(name, **kwargs):
+def build(**kwargs):
     # number of features per frame
     n_features = kwargs['n_features']
     # number of words in the dictionary, one hot
     n_words = kwargs['n_words']
-
     # number of hidden dimensions
     latent_dim = kwargs['latent_dim']
 
@@ -57,8 +56,6 @@ def build(name, **kwargs):
     model = Model([enc_in, dec_in], dec_out)
     print(model.summary())
 
-    raise RuntimeError('Debug')
-
     return model
 
 def train(model, dataset, batch_size=16, epochs=200, validation_split=0.2):
@@ -66,6 +63,8 @@ def train(model, dataset, batch_size=16, epochs=200, validation_split=0.2):
               batch_size=batch_size, epcohs=epochs)
 
 def compile(model):
+    raise RuntimeError('PAUSE @ {}'.format('compile'))
+
     model.compile(optimizer='adam', loss='categorical_crossentropy')
 
 def evaluate(model, x, y=None):
@@ -158,6 +157,7 @@ if __name__ == '__main__':
     model_name = 's2s'
 
     dataset = Video(args.folder, dtype=args.dataset)
+    (n_features, n_words, n_timesteps) = dataset.shape
 
     if args.mode == 'train':
         if not args.reuse:
@@ -165,7 +165,7 @@ if __name__ == '__main__':
         model = load(model_name)
         # build the model from scratch if nothing is loaded
         if not model:
-            model = build(model_name, n_features=4096, n_words=3000, latent_dim=128)
+            model = build(n_features=n_features, n_words=n_words, latent_dim=256)
         compile(model)
         model = train(model)
     elif args.mode == 'infer':

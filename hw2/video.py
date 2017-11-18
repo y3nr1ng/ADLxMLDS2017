@@ -139,8 +139,13 @@ class Video(object):
         """
         folder = join(self._folder, self._dtype, 'feat')
         for file_path in glob(join(folder, '*.npy')):
+            # load array from file
             file_name = basename(file_path)
             features_id = file_name[:file_name.rindex('.npy')]
+            features = np.load(file_path)
+            # update feature record
+            if not hasattr(self, '_n_enc_steps') or not hasattr(self, '_n_features'):
+                (self._n_enc_steps, self._n_features) = features.shape
             data[features_id]['features'] = np.load(file_path)
         return data
 
@@ -153,9 +158,15 @@ class Video(object):
         # <pad> paddings
         # <unk> unknown words
         tags = {'<bos>', '<eos>', '<pad>', '<unk>'}
+        self._n_dec_steps = 0
         for _, data in self._data.items():
             for caption in data['captions']:
+                # update tags
                 tags.update(caption)
+                # update decoder steps
+                cap_len = len(caption)
+                if cap_len > self._n_dec_steps:
+                    self._n_dec_steps = cap_len
         # convert to lookup table (word -> index)
         lut = {tag: index for index, tag in enumerate(tags)}
         logger.info('{} unique words in the dataset'.format(len(lut)))
@@ -166,46 +177,45 @@ class Video(object):
         return lut, rlut
 
     def caption_to_vector(self, caption):
-        if not hasattr(self, '_max_len'):
-            self._update_max_len()
-
         # convert sequence
         unk = self._dict['<unk>']
         print(caption)
         caption = [self._dict.get(w, unk) for w in caption]
         # pad
-        vector = np.full(self._max_len, self._dict['<pad>'])
+        vector = np.full(self._n_dec_steps, self._dict['<pad>'])
         vector[:len(caption)] = np.asarray(caption)
 
         return vector
 
-    def _update_max_len(self):
-        self._max_len = 0
-        for _, data in self._data.items():
-            for caption in data['captions']:
-                cap_len = len(caption)
-                if cap_len > self._max_len:
-                    self._max_len = cap_len
-        logger.info('Longest caption contains {} tokens'.format(self._max_len))
-
     def vector_to_caption(self, vector):
-        if not hasattr(self, '_max_len'):
-            self._update_max_len()
-
-        # ignore paddings
+        # ignore paddings and convert sequence
         pad = self._dict['<pad>']
         caption = [self._rdict[v] for v in vector if v != pad]
 
         return caption
 
-    def __len__(self):
-        """
-        Returns the size of the dataset.
-        """
-        return len(self._ids)
-
-    def __getitem__(self, index):
-        """
-        Support the indexing such that dataset[i] can be used to get ith sample.
-        """
+    @property
+    def x(self):
         pass
+
+    @property
+    def y(self):
+        pass
+
+    @property
+    def shape(self):
+        """
+        Shape of the dataset.
+
+        Return
+        ------
+        (n_features, n_words, n_timesteps)
+            n_features: int
+                Number of extracted features per frame
+            n_words: int
+                Number of extracted words from provided captions
+            n_timesteps: int
+                Timesteps per sample.
+        """
+        n_timesteps = self._n_enc_steps + self._n_dec_steps
+        return (self._n_features, len(self._dict), n_timesteps)

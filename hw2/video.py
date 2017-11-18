@@ -74,10 +74,11 @@ class Video(object):
         if isfile(label_file):
             with open(label_file, 'r') as fd:
                 labels = json.load(fd)
-            # iterate through the items
             for label in labels:
-                if label['id'] in data:
-                    
+                label_id = label['id']
+                # only caption arrays from specified samples are saved
+                if label_id in data:
+                    data[label_id]['captions'] = label['caption']
 
         # format the input
         pprint(labels[0])

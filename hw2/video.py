@@ -41,14 +41,13 @@ class Video(object):
         # load ids from file if exists
         if isfile(id_file):
             with open(id_file, 'r') as fd:
-                lines = [line.rstrip('\n') for line in fd]
-            self._ids = [s[:s.rindex('.avi')] for s in lines]
+                self._ids = [line.rstrip('\n') for line in fd]
         else:
             folder = join(self._folder, self._dtype, 'feat');
             file_list = [f for f in listdir(folder) if isfile(join(folder, f))]
             try:
                 # remove the file extension
-                self._ids = list(map(lambda s: s[:s.rindex('.avi.npy')], file_list))
+                self._ids = list(map(lambda s: s[:s.rindex('.npy')], file_list))
             except ValueError:
                 logger.error('Invalid filename exists')
         logger.info('{} IDs found'.format(len(self._ids)))

@@ -22,12 +22,22 @@ class Video(object):
         # load all the data, features and labels
         self._data = self._load_data()
 
-        # build word dictionary
-        self._dict = self._build_dict()
-        # conver the captions
+        # build word dictionary, forward and inverse
+        (self._dict, self._rdict) = self._build_dict()
 
-        print('[<bos>] = {}'.format(self._dict['<bos>']))
-        raise RuntimeError('__init__')
+        #DEBUG
+        # 1) load the first item
+        # 2) extract the first caption
+        # 3) print the vector from
+        # 4) convert back to words
+        #for _, data in self._data.items():
+        #    caption = data['captions'][0]
+        #    print(caption)
+        #    vector = self.caption_to_vector(caption)
+        #    print('forward [{}]'.format(vector))
+        #    caption = self.vector_to_caption(vector)
+        #    print('reverse [{}]'.format(caption))
+        #    break
 
     @staticmethod
     def _location_lookup(dtype):
@@ -92,6 +102,9 @@ class Video(object):
         ------
         Dataset loaded with labels (if the file exists).
         """
+        def tokenize(sentence):
+            return re.compile('\w+').findall(sentence)
+
         # generate label file name
         prefix = self._dtype
         prefix = prefix[:-5] if self._dtype.endswith('_data') else prefix
@@ -103,7 +116,8 @@ class Video(object):
                     label_id = label['id']
                     # only caption arrays from specified samples are saved
                     if label_id in data:
-                        data[label_id]['captions'] = label['caption']
+                        captions = [tokenize(s) for s in label['caption']]
+                        data[label_id]['captions'] = captions
                     else:
                         logger.debug('Unused label \'{}\''.format(label_id))
         else:
@@ -134,18 +148,55 @@ class Video(object):
         """
         Scan through the dataset and build word-index associations.
         """
-        def tokenize(sentence):
-            return re.compile('\w+').findall(sentence)
-
+        # <bos> begin of sentence
+        # <eos> end of sentence
+        # <pad> paddings
+        # <unk> unknown words
         tags = {'<bos>', '<eos>', '<pad>', '<unk>'}
         for _, data in self._data.items():
             for caption in data['captions']:
-                tags.update(tokenize(caption))
+                tags.update(caption)
         # convert to lookup table (word -> index)
         lut = {tag: index for index, tag in enumerate(tags)}
-
         logger.info('{} unique words in the dataset'.format(len(lut)))
-        return lut
+
+        # build inverse lookup table
+        rlut = {v:k for k, v in lut.items()}
+
+        return lut, rlut
+
+    def caption_to_vector(self, caption):
+        if not hasattr(self, '_max_len'):
+            self._update_max_len()
+
+        # convert sequence
+        unk = self._dict['<unk>']
+        print(caption)
+        caption = [self._dict.get(w, unk) for w in caption]
+        # pad
+        vector = np.full(self._max_len, self._dict['<pad>'])
+        vector[:len(caption)] = np.asarray(caption)
+
+        return vector
+
+    def _update_max_len(self):
+        self._max_len = 0
+        for _, data in self._data.items():
+            for caption in data['captions']:
+                cap_len = len(caption)
+                if cap_len > self._max_len:
+                    self._max_len = cap_len
+        logger.info('Longest caption contains {} tokens'.format(self._max_len))
+
+    def vector_to_caption(self, vector):
+        if not hasattr(self, '_max_len'):
+            self._update_max_len()
+
+        # ignore paddings
+        pad = self._dict['<pad>']
+        caption = [self._rdict[v] for v in vector if v != pad]
+
+        return caption
 
     def __len__(self):
         """

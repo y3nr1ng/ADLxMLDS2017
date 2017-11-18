@@ -2,9 +2,11 @@
 Mask the entire dataset as a module.
 """
 from os import listdir
-from os.path import isfile, join, exists
+from os.path import isfile, join, exists, basename
+from glob import glob
 import json
 import numpy as np
+from timeit import default_timer as timer
 from pprint import pprint
 
 import logging
@@ -50,7 +52,7 @@ class Video(object):
             with open(id_file, 'r') as fd:
                 ids = [line.rstrip('\n') for line in fd]
         else:
-            folder = join(self._folder, self._dtype, 'feat');
+            folder = join(self._folder, self._dtype, 'feat')
             file_list = [f for f in listdir(folder) if isfile(join(folder, f))]
             try:
                 # remove the file extension
@@ -64,16 +66,26 @@ class Video(object):
         # create empty dataset, nested dict
         data = dict.fromkeys(self._ids, {'captions': [], 'features': []})
 
+        start = timer()
         data = self._load_labels(data)
         data = self._load_features(data)
-
-        raise RuntimeError("_load_data")
+        end = timer()
+        logger.info('Data loaded in {:.3f}s'.format(end-start))
 
         return data
 
     def _load_labels(self, data):
         """
         Load the dictionary representation of labels.
+
+        Parameter
+        ---------
+        data: dict
+            Dictionary with IDs as keys.
+
+        Return
+        ------
+        Dataset loaded with labels (if the file exists).
         """
         # generate label file name
         prefix = self._dtype
@@ -90,14 +102,23 @@ class Video(object):
         return data
 
     def _load_features(self, data):
-        folder = join(self._folder, self._dtype, 'feat');
-        #file_list = glob(os.path.join(folder, '*.npy'))
-        file_list = join(folder, 'xBePrplM4OA_6_18.avi.npy')
+        """
+        Load frame features from individual .npy files.
 
-        data = np.load(file_list)
-        pprint(data)
-        print(data.shape)
+        Parameter
+        ---------
+        data: dict
+            Dictionary with IDs as keys.
 
+        Return
+        ------
+        Dataset loaded with features.
+        """
+        folder = join(self._folder, self._dtype, 'feat')
+        for file_path in glob(join(folder, '*.npy')):
+            file_name = basename(file_path)
+            features_id = file_name[:file_name.rindex('.npy')]
+            data[features_id]['features'] = np.load(file_path)
         return data
 
     def _build_dict(self):
@@ -108,6 +129,8 @@ class Video(object):
         lut = {tag: index for index, tag in enumerate(tags)}
 
         pprint(lut)
+
+        raise RuntimeError('_build_dict')
 
     def __len__(self):
         """

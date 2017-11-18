@@ -6,6 +6,7 @@ from os.path import isfile, join, exists, basename
 from glob import glob
 import json
 import numpy as np
+import re
 from timeit import default_timer as timer
 from pprint import pprint
 
@@ -23,6 +24,10 @@ class Video(object):
 
         # build word dictionary
         self._dict = self._build_dict()
+        # conver the captions
+
+        print('[<bos>] = {}'.format(self._dict['<bos>']))
+        raise RuntimeError('__init__')
 
     @staticmethod
     def _location_lookup(dtype):
@@ -64,7 +69,7 @@ class Video(object):
 
     def _load_data(self):
         # create empty dataset, nested dict
-        data = dict.fromkeys(self._ids, {'captions': [], 'features': []})
+        data = {k: {} for k in self._ids}
 
         start = timer()
         data = self._load_labels(data)
@@ -99,6 +104,10 @@ class Video(object):
                     # only caption arrays from specified samples are saved
                     if label_id in data:
                         data[label_id]['captions'] = label['caption']
+                    else:
+                        logger.debug('Unused label \'{}\''.format(label_id))
+        else:
+            logger.warning('Unable to find the label file')
         return data
 
     def _load_features(self, data):
@@ -123,14 +132,20 @@ class Video(object):
 
     def _build_dict(self):
         """
-        Scan through the training set and build word-index associations.
+        Scan through the dataset and build word-index associations.
         """
-        tags = ('<bos>', '<eos>', '<pad>', '<unk>')
+        def tokenize(sentence):
+            return re.compile('\w+').findall(sentence)
+
+        tags = {'<bos>', '<eos>', '<pad>', '<unk>'}
+        for _, data in self._data.items():
+            for caption in data['captions']:
+                tags.update(tokenize(caption))
+        # convert to lookup table (word -> index)
         lut = {tag: index for index, tag in enumerate(tags)}
 
-        pprint(lut)
-
-        raise RuntimeError('_build_dict')
+        logger.info('{} unique words in the dataset'.format(len(lut)))
+        return lut
 
     def __len__(self):
         """

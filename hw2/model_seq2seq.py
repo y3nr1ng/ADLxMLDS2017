@@ -163,6 +163,13 @@ if __name__ == '__main__':
     dataset = Video(args.folder, dtype=args.dataset)
     (n_features, n_words, n_timesteps) = dataset.shape
 
+    with open(args.output, 'w') as fd:
+        for vid in dataset._ids:
+            fd.write('{},the\n'.format(vid))
+
+    import sys
+    sys.exit()
+
     if args.mode == 'train':
         if not args.reuse:
             archive(model_name)

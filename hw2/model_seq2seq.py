@@ -35,16 +35,19 @@ def build(**kwargs):
     n_features = kwargs['n_features']
     # number of words in the dictionary, one hot
     n_words = kwargs['n_words']
+    # Timesteps
+    n_timesteps = kwargs['n_timesteps']
     # number of hidden dimensions
     latent_dim = kwargs['latent_dim']
 
-    enc_in = Input(shape=(None, n_features))
+    enc_in = Input(shape=(n_timesteps, n_features))
     enc_lstm = LSTM(latent_dim, return_state=True)
     enc_out, state_h, state_c = enc_lstm(enc_in)
 
     states = [state_h, state_c]
 
-    dec_in = Input(shape=(None, n_words))
+    # additional dimension for the tags
+    dec_in = Input(shape=(n_timesteps, n_words))
     dec_lstm = LSTM(latent_dim, return_sequences=True, return_state=True)
     dec_dense = Dense(n_words, activation='softmax')
 
@@ -57,17 +60,19 @@ def build(**kwargs):
 
     return model
 
-def train(model, dataset, batch_size=16, epochs=200, validation_split=0.2):
-    model.fit(dataset.x, dataset.y, validation_split=validation_split,
-              batch_size=batch_size, epcohs=epochs)
+def train(model, dataset, batch_size=16, epochs=1, validation_split=0.2):
+    #model.fit(dataset.x, dataset.y, validation_split=validation_split,
+    #          batch_size=batch_size, epcohs=epochs)
+    n_samples = len(dataset)
+    logger.info('{} samples to train on'.format(n_samples))
+    model.fit_generator(dataset.generator(),
+                        steps_per_epoch=n_samples, epochs=epochs)
 
 def compile(model):
-    raise RuntimeError('PAUSE @ {}'.format('compile'))
-
     model.compile(optimizer='adam', loss='categorical_crossentropy')
 
-def evaluate(model, x, y=None):
-    print('EVALUATE')
+def evaluate(model, dataset):
+    model.evaluate_generator(dataset.generator(), len(dataset))
 
 def load(name, strict=False):
     """
@@ -164,9 +169,9 @@ if __name__ == '__main__':
         model = load(model_name)
         # build the model from scratch if nothing is loaded
         if not model:
-            model = build(n_features=n_features, n_words=n_words, latent_dim=256)
+            model = build(n_features=n_features, n_words=n_words, n_timesteps=n_timesteps, latent_dim=256)
         compile(model)
-        model = train(model)
+        train(model, dataset)
     elif args.mode == 'infer':
         model = load(model_name, strict=True)
         compile(model)

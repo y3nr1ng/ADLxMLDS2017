@@ -194,20 +194,40 @@ class Video(object):
 
         return caption
 
-    @property
-    def x_enc(self):
-        #TODO pad with decoder sequence
-        pass
+    def generator(self):
+        pad = self._dict['<pad>']
+        bos = self._dict['<bos>']
+        eos = self._dict['<eos>']
+        unk = self._dict['<unk>']
 
-    @property
-    def x_dec(self):
-        #TODO pad with encoder sequence, with <bos>
-        pass
+        n_timesteps = self._n_enc_steps + self._n_dec_steps
+        for vid in self._ids:
+            data = self._data[vid]
 
-    @property
-    def y(self):
-        #TODO similar with x_dec, with <eos>
-        pass
+            x_enc = np.full((1, n_timesteps, self._n_features),
+                            0.0, dtype=np.float32)
+            x_enc[0, :self._n_enc_steps, :] = data['features']
+            for caption in data['captions']:
+                x_dec = np.full((1, n_timesteps, len(self._dict)),
+                                0.0, dtype=np.float32)
+                y = np.full((1, n_timesteps, len(self._dict)),
+                             0.0, dtype=np.float32)
+
+                # fill the paddings
+                x_dec[0, :self._n_enc_steps, pad] = 1.0
+                y[0, :self._n_enc_steps, pad] = 1.0
+                # fill the <bos>
+                x_dec[0, self._n_enc_steps, bos] = 1.0
+                # fill the <eos>
+                y[0, n_timesteps-1, eos] = 1.0
+                # fill the sentence
+                for i, w in enumerate(caption):
+                    v = self._dict.get(w, unk)
+                    x_dec[0, (self._n_enc_steps+1)+i, v] = 1.0
+                    y[0, self._n_enc_steps+i, v] = 1.0
+
+                # send the result back
+                yield ({'input_1': x_enc, 'input_2': x_dec}, {'dense_1': y})
 
     @property
     def shape(self):
@@ -226,3 +246,9 @@ class Video(object):
         """
         n_timesteps = self._n_enc_steps + self._n_dec_steps
         return (self._n_features, len(self._dict), n_timesteps)
+
+    def __len__(self):
+        n_samples = 0
+        for _, data in self._data.items():
+            n_samples += len(data['captions'])
+        return n_samples

@@ -134,7 +134,7 @@
 		\caption{繳交的模型} \label{fig:model}
 	\end{figure}
 	
-	模型參照了 \cite{Atenminu59:online} 的介紹，一層 RNN 作為編碼器（encoder），並且在處理完輸入的序列後回傳內部的狀態，提供給下一層作為解碼器（decoder）的 RNN。
+	模型參照了 \cite{keras10} 的介紹，一層 RNN 作為編碼器（encoder），並且在處理完輸入的序列後回傳內部的狀態，提供給下一層作為解碼器（decoder）的 RNN。
 	身為解碼器的 RNN 會讀入兩種輸入，一種為來自編碼器的狀態，另外一種則為做為標準答案的 one-hot 文字向量。
 	
 	在本次的實作當中，one-hot 的字典檔維度為 6300 字。而測試的資料總共有 1450 筆獨立的影片，每個影片個字會有的註解（caption）總共創造出 24232 筆不重複的訓練資料組。

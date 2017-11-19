@@ -6,7 +6,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 # set Keras backend
 os.environ['KERAS_BACKEND'] = 'tensorflow'
 
-from keras.models import model_from_json, Sequential
+from keras.models import model_from_json
 
 import argparse
 from os import rename
@@ -18,7 +18,7 @@ logger = logging.getLogger()
 
 # set the logging format
 handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s %(levelname)-5s %(message)s',
+formatter = logging.Formatter('[%(levelname).1s %(asctime)s] %(message)s',
                               '%Y-%m-%d %H:%M:%S')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
@@ -26,14 +26,53 @@ logger.addHandler(handler)
 # set the global log level
 logger.setLevel(logging.DEBUG)
 
-def build(name):
-    print('BUILDING')
+import keras
+from keras.models import Model
+from keras.layers import Input, LSTM, Dense
 
-def train(model, epochs=200):
-    print('TRAIN')
+def build(**kwargs):
+    # number of features per frame
+    n_features = kwargs['n_features']
+    # number of words in the dictionary, one hot
+    n_words = kwargs['n_words']
+    # Timesteps
+    n_timesteps = kwargs['n_timesteps']
+    # number of hidden dimensions
+    latent_dim = kwargs['latent_dim']
 
-def evaluate(model, x, y=None):
-    print('EVALUATE')
+    enc_in = Input(shape=(n_timesteps, n_features))
+    enc_lstm = LSTM(latent_dim, return_state=True)
+    enc_out, state_h, state_c = enc_lstm(enc_in)
+
+    states = [state_h, state_c]
+
+    # additional dimension for the tags
+    dec_in = Input(shape=(n_timesteps, n_words))
+    dec_lstm = LSTM(latent_dim, return_sequences=True, return_state=True)
+    dec_dense = Dense(n_words, activation='softmax')
+
+    dec_out, _, _ = dec_lstm(dec_in, initial_state=states)
+    dec_out = dec_dense(dec_out)
+
+    # create the model
+    model = Model([enc_in, dec_in], dec_out)
+    print(model.summary())
+
+    return model
+
+def train(model, dataset, batch_size=16, epochs=1, validation_split=0.2):
+    #model.fit(dataset.x, dataset.y, validation_split=validation_split,
+    #          batch_size=batch_size, epcohs=epochs)
+    n_samples = len(dataset)
+    logger.info('{} samples to train on'.format(n_samples))
+    model.fit_generator(dataset.generator(),
+                        steps_per_epoch=n_samples, epochs=epochs)
+
+def compile(model):
+    model.compile(optimizer='adam', loss='categorical_crossentropy')
+
+def evaluate(model, dataset):
+    model.evaluate_generator(dataset.generator(), len(dataset))
 
 def load(name, strict=False):
     """
@@ -59,8 +98,6 @@ def load(name, strict=False):
             model = model_from_json(fd.read())
         # load weights
         model.load_weights(weight_file)
-        #TODO compile
-        # model.compile(...)
 
         logger.info('Model \'{}\' loaded'.format(name))
         return model
@@ -124,6 +161,14 @@ if __name__ == '__main__':
     model_name = 's2s'
 
     dataset = Video(args.folder, dtype=args.dataset)
+    (n_features, n_words, n_timesteps) = dataset.shape
+
+    with open(args.output, 'w') as fd:
+        for vid in dataset._ids:
+            fd.write('{},the\n'.format(vid))
+
+    import sys
+    sys.exit()
 
     if args.mode == 'train':
         if not args.reuse:
@@ -131,12 +176,13 @@ if __name__ == '__main__':
         model = load(model_name)
         # build the model from scratch if nothing is loaded
         if not model:
-            model = build()
-        model = train(model)
+            model = build(n_features=n_features, n_words=n_words, n_timesteps=n_timesteps, latent_dim=256)
+        compile(model)
+        train(model, dataset)
     elif args.mode == 'infer':
         model = load(model_name, strict=True)
+        compile(model)
 
-    #TODO use generator pattern
     evaluate(model, dataset)
 
     if not args.dry:

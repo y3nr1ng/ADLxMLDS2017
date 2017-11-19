@@ -7,6 +7,7 @@ from glob import glob
 import json
 import numpy as np
 import re
+import pickle
 from timeit import default_timer as timer
 from pprint import pprint
 
@@ -149,30 +150,43 @@ class Video(object):
             data[features_id]['features'] = np.load(file_path)
         return data
 
-    def _build_dict(self):
+    def _build_dict(self, name='lut'):
         """
         Scan through the dataset and build word-index associations.
         """
-        # <bos> begin of sentence
-        # <eos> end of sentence
-        # <pad> paddings
-        # <unk> unknown words
-        tags = {'<bos>', '<eos>', '<pad>', '<unk>'}
-        self._n_dec_steps = 0
-        for _, data in self._data.items():
-            for caption in data['captions']:
-                # update tags
-                tags.update(caption)
-                # update decoder steps
-                cap_len = len(caption)
-                if cap_len > self._n_dec_steps:
-                    self._n_dec_steps = cap_len
-        # convert to lookup table (word -> index)
-        lut = {tag: index for index, tag in enumerate(tags)}
-        logger.info('{} unique words in the dataset'.format(len(lut)))
+        lut_file = '{}.pkl'.format(name)
+        if isfile(lut_file):
+            logger.warning('Loading lookup tables from \'{}\''.format(name))
+            with open(lut_file, 'rb') as fd:
+                lut, rlut = pickle.load(fd)
+                self._n_dec_steps = pickle.load(fd)
+        else:
+            # <bos> begin of sentence
+            # <eos> end of sentence
+            # <pad> paddings
+            # <unk> unknown words
+            tags = {'<bos>', '<eos>', '<pad>', '<unk>'}
+            self._n_dec_steps = 0
+            for _, data in self._data.items():
+                for caption in data['captions']:
+                    # update tags
+                    tags.update(caption)
+                    # update decoder steps
+                    cap_len = len(caption)
+                    if cap_len > self._n_dec_steps:
+                        self._n_dec_steps = cap_len
+            # convert to lookup table (word -> index)
+            lut = {tag: index for index, tag in enumerate(tags)}
+            logger.info('{} unique words in the dataset'.format(len(lut)))
 
-        # build inverse lookup table
-        rlut = {v:k for k, v in lut.items()}
+            # build inverse lookup table
+            rlut = {v:k for k, v in lut.items()}
+
+            # save to pickle
+            with open(lut_file, 'wb') as fd:
+                pickle.dump((lut, rlut), fd)
+                pickle.dump(self._n_dec_steps, fd)
+            logger.warning('Lookup tables saved to \'{}\''.format(name))
 
         return lut, rlut
 

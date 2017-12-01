@@ -1,4 +1,4 @@
-# ADL HW3
+# HW3 Game Playing
 Please don't revise test.py, environment.py, agent_dir/agent.py
 
 ## Installation

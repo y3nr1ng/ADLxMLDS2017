@@ -62,17 +62,19 @@ class Agent_PG(Agent):
         _, observation = cv2.threshold(observation.astype(np.uint8), 0, 1,
                                        cv2.THRESH_BINARY+cv2.THRESH_OTSU)
 
-        # playground
+        # field
         #   x=20, y=34, w=120, h=160
-        playground = observation[34:194, 20:140]
+        field = observation[34:194, 20:140]
         # player
         #   x=140, y=34, w=4, h=160
-        player = observation[34:194, 140:144]
+        player = observation[34:194, 140:141]
         # opponent
         #   x=16, y=34, w=4, h=160
-        opponent = observation[34:194, 16:20]
+        opponent = observation[34:194, 16:17]
 
-
+        # apply weights (w length) for the field position
+        weights = np.arange(1, 121)
+        field = np.dot(field, weights)
 
         ##################
         # YOUR CODE HERE #

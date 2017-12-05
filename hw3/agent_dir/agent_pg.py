@@ -1,5 +1,8 @@
 from agent_dir.agent import Agent
 
+import numpy as np
+import cv2
+
 class Agent_PG(Agent):
     def __init__(self, env, args):
         """
@@ -53,8 +56,25 @@ class Agent_PG(Agent):
             action: int
                 the predicted action from trained model
         """
+        # convert to grayscale
+        observation = np.dot(observation[..., :3], [0.299, 0.587, 0.114])
+        # binarize, {0, 1}
+        _, observation = cv2.threshold(observation.astype(np.uint8), 0, 1,
+                                       cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+
+        # playground
+        #   x=20, y=34, w=120, h=160
+        playground = observation[34:194, 20:140]
+        # player
+        #   x=140, y=34, w=4, h=160
+        player = observation[34:194, 140:144]
+        # opponent
+        #   x=16, y=34, w=4, h=160
+        opponent = observation[34:194, 16:20]
+
+
+
         ##################
         # YOUR CODE HERE #
         ##################
         return self.env.get_random_action()
-

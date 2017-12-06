@@ -2,6 +2,9 @@ from agent_dir.agent import Agent
 
 import numpy as np
 import cv2
+from keras.models import Sequential
+from keras.layers import Dense, Activation
+from keras.utils import print_summary
 
 class Agent_PG(Agent):
     def __init__(self, env, args):
@@ -9,24 +12,44 @@ class Agent_PG(Agent):
         Initialize every things you need here.
         For example: building your model
         """
-
         super(Agent_PG,self).__init__(env)
 
+        self._build_network()
         if args.test_pg:
-            #you can load your model here
-            print('loading trained model')
+            self.model.load_weights('agent_pg_weight.h5')
+        self._compile_network()
 
-        ##################
-        # YOUR CODE HERE #
-        ##################
+        raise RuntimeError('DEBUG')
 
+    def _build_network(self):
+        """
+        Create a base network.
+        """
+        # parse network size
+        #   in: 3 types of input, (opponent, field, player)
+        #   out: n actions
+        in_dim = 160 * 3
+        out_dim = self.env.get_action_space().shape[0]
+
+        model = Sequential([
+            Dense(128, input_shape=(in_dim, )),
+            Activation('relu'),
+            Dense(out_dim),
+            Activation('softmax')
+        ])
+
+        print_summary(model)
+        self.model = model
+
+    def _compile_network(self):
+        self.model.compile(optimiazer='adam',
+                           loss='categorical_crossentropy',
+                           metrics='accuracy')
 
     def init_game_setting(self):
         """
-
         Testing function will call this function at the begining of new game
         Put anything you want to initialize if necessary
-
         """
         ##################
         # YOUR CODE HERE #
@@ -38,11 +61,9 @@ class Agent_PG(Agent):
         """
         Implement your training algorithm here
         """
-        ##################
-        # YOUR CODE HERE #
-        ##################
-        pass
 
+
+        self.model.save_weights('agent_pg_weight.h5')
 
     def make_action(self, observation, test=True):
         """
@@ -67,10 +88,10 @@ class Agent_PG(Agent):
         field = observation[34:194, 20:140]
         # player
         #   x=140, y=34, w=4, h=160
-        player = observation[34:194, 140:141]
+        player = observation[34:194, 140]
         # opponent
         #   x=16, y=34, w=4, h=160
-        opponent = observation[34:194, 16:17]
+        opponent = observation[34:194, 19]
 
         # apply weights (w length) for the field position
         weights = np.arange(1, 121)

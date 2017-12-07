@@ -33,21 +33,21 @@ class Agent_PG(Agent):
         Create a base network.
         """
         # parse network size
-        #   in: 3 types of input, (opponent, field, player)
+        #   in: 3 types of input, (field, player)
         #   out: n actions
-        in_dim = 160 * 3
+        in_dim = 160 * 2
         out_dim = self.env.get_action_space().n
 
         model = Sequential([
-            Dense(128, input_shape=(in_dim, )),
-            Activation('relu'),
-            Dense(out_dim),
-            Activation('softmax')
+            Dense(256, input_shape=(in_dim, ), activation='relu', kernel_initializer='he_uniform'),
+            Dense(64, activation='relu', kernel_initializer='he_uniform'),
+            Dense(16, activation='relu', kernel_initializer='he_uniform'),
+            Dense(out_dim, activation='softmax')
         ])
         print_summary(model)
         self.model = model
 
-    def _compile_network(self, lr=0.001):
+    def _compile_network(self, lr=1e-3):
         optimizer = Adam(lr=lr)
         self.model.compile(optimizer=optimizer, loss='categorical_crossentropy')
 
@@ -62,7 +62,7 @@ class Agent_PG(Agent):
         """
         Implement your training algorithm here
         """
-        for i_ep in range(100):
+        for i_ep in range(300):
             score, loss = self._train_once()
             print('ep {}, score = {}, loss = {:.4f}'.format(i_ep, score, loss))
         self.model.save_weights(Agent_PG.WEIGHT_FILE)
@@ -78,6 +78,7 @@ class Agent_PG(Agent):
 
         # run a single episode
         done = False
+        prev_state = None
         while not done:
             # execute a step
             action, p_action = self.make_action(observation, test=False)
@@ -86,15 +87,16 @@ class Agent_PG(Agent):
             score += reward
 
             opponent, field, player = Agent_PG._preprocess(observation)
-            # concat every vectors as a single state
-            state = np.concatenate([opponent, field, player])
+            # calculate state differences
+            curr_state = np.concatenate([field, player])
+            diff_state = curr_state if prev_state is None else curr_state - prev_state
             # calculate probability gradient
             p_decision = to_categorical(action,
                                         num_classes=self.env.get_action_space().n)
             gradient = p_decision.astype('float32') - p_action
 
             # remember the result
-            entry = Agent_PG.History(state, p_action, gradient, reward)
+            entry = Agent_PG.History(diff_state, p_action, gradient, reward)
             history.append(entry)
 
         # extract the results
@@ -104,7 +106,8 @@ class Agent_PG(Agent):
         rewards = np.vstack(rewards)
         rewards = self._discount_rewards(rewards, gamma=gamma)
         # normalize
-        rewards = rewards / np.std(rewards-np.mean(rewards))
+        rewards -= np.mean(rewards)
+        rewards /= np.std(rewards)
 
         # attenuate the gradients
         gradients = np.vstack(gradients)
@@ -122,8 +125,12 @@ class Agent_PG(Agent):
         d_rewards = np.zeros_like(rewards)
         running_add = 0
         for i in reversed(range(rewards.size)):
+            '''
             if rewards[i] != 0:
                 running_add = 0
+            running_add = running_add * gamma + rewards[i]
+            d_rewards[i] = running_add
+            '''
             running_add = running_add * gamma + rewards[i]
             d_rewards[i] = running_add
         return d_rewards
@@ -142,7 +149,7 @@ class Agent_PG(Agent):
         """
         opponent, field, player = Agent_PG._preprocess(observation)
         # concat every vectors as a single state
-        state = np.concatenate([opponent, field, player])
+        state = np.concatenate([field, player])
         # reverse the input to accomodate the requirement
         state = state.reshape([1, state.shape[0]])
 

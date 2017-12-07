@@ -1,12 +1,21 @@
 from agent_dir.agent import Agent
 
+from collections import namedtuple
+
 import numpy as np
 import cv2
 from keras.models import Sequential
 from keras.layers import Dense, Activation
-from keras.utils import print_summary
+from keras.optimizers import Adam
+from keras.utils import print_summary, to_categorical
+
+from pprint import pprint
 
 class Agent_PG(Agent):
+    WEIGHT_FILE = 'agent_pg_weight.h5'
+    History = namedtuple('History',
+                         ['state', 'probability', 'gradient', 'reward'])
+
     def __init__(self, env, args):
         """
         Initialize every things you need here.
@@ -16,10 +25,8 @@ class Agent_PG(Agent):
 
         self._build_network()
         if args.test_pg:
-            self.model.load_weights('agent_pg_weight.h5')
+            self.model.load_weights(Agent_PG.WEIGHT_FILE)
         self._compile_network()
-
-        raise RuntimeError('DEBUG')
 
     def _build_network(self):
         """
@@ -29,7 +36,7 @@ class Agent_PG(Agent):
         #   in: 3 types of input, (opponent, field, player)
         #   out: n actions
         in_dim = 160 * 3
-        out_dim = self.env.get_action_space().shape[0]
+        out_dim = self.env.get_action_space().n
 
         model = Sequential([
             Dense(128, input_shape=(in_dim, )),
@@ -37,33 +44,89 @@ class Agent_PG(Agent):
             Dense(out_dim),
             Activation('softmax')
         ])
-
         print_summary(model)
         self.model = model
 
-    def _compile_network(self):
-        self.model.compile(optimiazer='adam',
-                           loss='categorical_crossentropy',
-                           metrics='accuracy')
+    def _compile_network(self, lr=0.001):
+        optimizer = Adam(lr=lr)
+        self.model.compile(optimizer=optimizer, loss='categorical_crossentropy')
 
     def init_game_setting(self):
         """
         Testing function will call this function at the begining of new game
         Put anything you want to initialize if necessary
         """
-        ##################
-        # YOUR CODE HERE #
-        ##################
         pass
-
 
     def train(self):
         """
         Implement your training algorithm here
         """
+        for i_ep in range(100):
+            score, loss = self._train_once()
+            print('ep {}, score = {}, loss = {:.4f}'.format(i_ep, score, loss))
+        self.model.save_weights(Agent_PG.WEIGHT_FILE)
 
+    def _train_once(self, gamma=0.99, lr=1e-3):
+        """
+        Train a single episode.
+        """
+        # initialize
+        observation = self.env.reset()
+        score = 0
+        history = []
 
-        self.model.save_weights('agent_pg_weight.h5')
+        # run a single episode
+        done = False
+        while not done:
+            # execute a step
+            action, p_action = self.make_action(observation, test=False)
+            observation, reward, done, _ = self.env.step(action)
+
+            score += reward
+
+            opponent, field, player = Agent_PG._preprocess(observation)
+            # concat every vectors as a single state
+            state = np.concatenate([opponent, field, player])
+            # calculate probability gradient
+            p_decision = to_categorical(action,
+                                        num_classes=self.env.get_action_space().n)
+            gradient = p_decision.astype('float32') - p_action
+
+            # remember the result
+            entry = Agent_PG.History(state, p_action, gradient, reward)
+            history.append(entry)
+
+        # extract the results
+        states, probability, gradients, rewards = zip(*history)
+
+        # discount rewards
+        rewards = np.vstack(rewards)
+        rewards = self._discount_rewards(rewards, gamma=gamma)
+        # normalize
+        rewards = rewards / np.std(rewards-np.mean(rewards))
+
+        # attenuate the gradients
+        gradients = np.vstack(gradients)
+        gradients *= rewards
+
+        # batch training
+        X = np.vstack(states)
+        probability = np.vstack(probability)
+        Y = probability + lr * gradients
+        loss = self.model.train_on_batch(X, Y)
+
+        return score, loss
+
+    def _discount_rewards(self, rewards, gamma=0.99):
+        d_rewards = np.zeros_like(rewards)
+        running_add = 0
+        for i in reversed(range(rewards.size)):
+            if rewards[i] != 0:
+                running_add = 0
+            running_add = running_add * gamma + rewards[i]
+            d_rewards[i] = running_add
+        return d_rewards
 
     def make_action(self, observation, test=True):
         """
@@ -76,6 +139,40 @@ class Agent_PG(Agent):
         Return:
             action: int
                 the predicted action from trained model
+        """
+        opponent, field, player = Agent_PG._preprocess(observation)
+        # concat every vectors as a single state
+        state = np.concatenate([opponent, field, player])
+        # reverse the input to accomodate the requirement
+        state = state.reshape([1, state.shape[0]])
+
+        p_action = self.model.predict(state, batch_size=1).flatten()
+        # normalize the PDF
+        p_action = p_action / np.sum(p_action)
+
+        # determine the action according to the PDF
+        action = np.random.choice(self.env.get_action_space().n, p=p_action)
+        if test:
+            return action
+        else:
+            return action, p_action
+
+    @staticmethod
+    def _preprocess(observation):
+        """
+        Process (split fields and segmented) the observation field.
+
+        Input:
+            observation: np.array
+                current RGB screen of game, shape: (210, 160, 3)
+
+        Return:
+            opponent: np.array
+                opponent status
+            field: np.array
+                field status, weighted by distance to the player
+            player: np.array
+                player status
         """
         # convert to grayscale
         observation = np.dot(observation[..., :3], [0.299, 0.587, 0.114])
@@ -97,7 +194,4 @@ class Agent_PG(Agent):
         weights = np.arange(1, 121)
         field = np.dot(field, weights)
 
-        ##################
-        # YOUR CODE HERE #
-        ##################
-        return self.env.get_random_action()
+        return opponent, field, player

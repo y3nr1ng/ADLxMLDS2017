@@ -211,7 +211,7 @@ class Agent_PG(Agent):
         # apply weights (w length) for the field position
         #weights = 2**(np.arange(1, 121, dtype=np.float32) / 120) / 2
         #field = np.sum(field*weights, axis=1)
-        field = np.sum(field axis=1)
+        field = np.sum(field, axis=1)
         if np.amax(field) != 0:
             field /= np.amax(field)
 

@@ -68,7 +68,7 @@ class Agent_PG(Agent):
         """
         Implement your training algorithm here
         """
-        for i_ep in range(100):
+        for i_ep in range(1000):
             score, loss = self._train_once()
             print('ep {}, score = {}, loss = {:.6f}'.format(i_ep, score, loss))
         self.model.save_weights(Agent_PG.WEIGHT_FILE)
@@ -214,7 +214,7 @@ class Agent_PG(Agent):
         field = np.sum(field axis=1)
         if np.amax(field) != 0:
             field /= np.amax(field)
-            
+
         # player
         #   x=140, y=34, w=4, h=160
         player = observation[34:194, 140]

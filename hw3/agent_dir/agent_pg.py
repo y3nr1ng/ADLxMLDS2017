@@ -11,6 +11,9 @@ from keras.utils import print_summary, to_categorical
 
 from pprint import pprint
 np.set_printoptions(threshold=np.inf)
+import matplotlib.pyplot as plt
+
+plt.ion()
 
 class Agent_PG(Agent):
     WEIGHT_FILE = 'agent_pg_weight.h5'
@@ -25,7 +28,8 @@ class Agent_PG(Agent):
         super(Agent_PG,self).__init__(env)
 
         self._build_network()
-        if args.test_pg:
+        if args.test_pg or args.reuse:
+            print('load weights from \'{}\''.format(Agent_PG.WEIGHT_FILE))
             self.model.load_weights(Agent_PG.WEIGHT_FILE)
         self._compile_network()
 
@@ -65,9 +69,9 @@ class Agent_PG(Agent):
         """
         Implement your training algorithm here
         """
-        for i_ep in range(3000):
+        for i_ep in range(100):
             score, loss = self._train_once()
-            print('ep {}, score = {}, loss = {}'.format(i_ep, score, loss))
+            print('ep {}, score = {}, loss = {:.6f}'.format(i_ep, score, loss))
         self.model.save_weights(Agent_PG.WEIGHT_FILE)
 
     def _train_once(self, gamma=0.99, lr=1e-2):
@@ -85,7 +89,7 @@ class Agent_PG(Agent):
         while not done:
             # execute a step
             action, p_action = self.make_action(observation, test=False)
-            pprint('{} {}'.format(['{0:.3f}'.format(i) for i in p_action], action))
+            #pprint('{} {}'.format(['{0:.3f}'.format(i) for i in p_action], action))
             observation, reward, done, _ = self.env.step(action)
 
             score += reward
@@ -93,10 +97,10 @@ class Agent_PG(Agent):
             opponent, curr_field, player = Agent_PG._preprocess(observation)
             # calculate field differences
             if prev_field is None:
-                prev_field = curr_field
                 diff_field = curr_field
             else:
                 diff_field = curr_field - prev_field
+            prev_field = curr_field
             state = np.concatenate([diff_field, player])
 
             # calculate probability gradient
@@ -207,7 +211,7 @@ class Agent_PG(Agent):
         field = observation[34:194, 20:140]
         # apply weights (w length) for the field position
         weights = np.arange(1, 121, dtype=np.float32) / 120
-        field = np.dot(field, weights)
+        field = np.sum(field*weights, axis=1)
 
         # player
         #   x=140, y=34, w=4, h=160

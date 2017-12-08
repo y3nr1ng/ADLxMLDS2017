@@ -7,9 +7,11 @@ import cv2
 from keras.models import Sequential
 from keras.layers import Dense, Activation
 from keras.optimizers import Adam
+from keras.initializers import TruncatedNormal
 from keras.utils import print_summary, to_categorical
 
 from pprint import pprint
+np.set_printoptions(threshold=np.inf)
 
 class Agent_PG(Agent):
     WEIGHT_FILE = 'agent_pg_weight.h5'
@@ -28,6 +30,8 @@ class Agent_PG(Agent):
             self.model.load_weights(Agent_PG.WEIGHT_FILE)
         self._compile_network()
 
+        self._prev_field = None
+
     def _build_network(self):
         """
         Create a base network.
@@ -38,10 +42,10 @@ class Agent_PG(Agent):
         in_dim = 160 * 2
         out_dim = self.env.get_action_space().n
 
+        init = TruncatedNormal()
         model = Sequential([
-            Dense(256, input_shape=(in_dim, ), activation='relu', kernel_initializer='he_uniform'),
-            Dense(64, activation='relu', kernel_initializer='he_uniform'),
-            Dense(16, activation='relu', kernel_initializer='he_uniform'),
+            Dense(128, input_shape=(in_dim, ), activation='relu', kernel_initializer=init),
+            Dense(32, activation='relu', kernel_initializer=init),
             Dense(out_dim, activation='softmax')
         ])
         print_summary(model)
@@ -62,12 +66,12 @@ class Agent_PG(Agent):
         """
         Implement your training algorithm here
         """
-        for i_ep in range(300):
+        for i_ep in range(200):
             score, loss = self._train_once()
-            print('ep {}, score = {}, loss = {:.4f}'.format(i_ep, score, loss))
+            print('ep {}, score = {}, loss = {}'.format(i_ep, score, loss))
         self.model.save_weights(Agent_PG.WEIGHT_FILE)
 
-    def _train_once(self, gamma=0.99, lr=1e-3):
+    def _train_once(self, gamma=0.99, lr=1e-2):
         """
         Train a single episode.
         """
@@ -78,25 +82,31 @@ class Agent_PG(Agent):
 
         # run a single episode
         done = False
-        prev_state = None
+        prev_field = None
         while not done:
             # execute a step
             action, p_action = self.make_action(observation, test=False)
+            #pprint(['{0:.4f}'.format(i) for i in p_action])
             observation, reward, done, _ = self.env.step(action)
 
             score += reward
 
-            opponent, field, player = Agent_PG._preprocess(observation)
-            # calculate state differences
-            curr_state = np.concatenate([field, player])
-            diff_state = curr_state if prev_state is None else curr_state - prev_state
+            opponent, curr_field, player = Agent_PG._preprocess(observation)
+            # calculate field differences
+            if prev_field is None:
+                prev_field = curr_field
+                diff_field = curr_field
+            else:
+                diff_field = curr_field - prev_field
+            state = np.concatenate([diff_field, player]).astype('float32')
+
             # calculate probability gradient
             p_decision = to_categorical(action,
                                         num_classes=self.env.get_action_space().n)
             gradient = p_decision.astype('float32') - p_action
 
             # remember the result
-            entry = Agent_PG.History(diff_state, p_action, gradient, reward)
+            entry = Agent_PG.History(state, p_action, gradient, reward)
             history.append(entry)
 
         # extract the results
@@ -122,15 +132,11 @@ class Agent_PG(Agent):
         return score, loss
 
     def _discount_rewards(self, rewards, gamma=0.99):
-        d_rewards = np.zeros_like(rewards)
+        d_rewards = np.zeros_like(rewards).astype('float32')
         running_add = 0
         for i in reversed(range(rewards.size)):
-            '''
             if rewards[i] != 0:
                 running_add = 0
-            running_add = running_add * gamma + rewards[i]
-            d_rewards[i] = running_add
-            '''
             running_add = running_add * gamma + rewards[i]
             d_rewards[i] = running_add
         return d_rewards
@@ -147,18 +153,25 @@ class Agent_PG(Agent):
             action: int
                 the predicted action from trained model
         """
-        opponent, field, player = Agent_PG._preprocess(observation)
+        opponent, curr_field, player = Agent_PG._preprocess(observation)
+        # calculate field differences
+        if self._prev_field is None:
+            self._prev_field = curr_field
+            diff_field = curr_field
+        else:
+            diff_field = curr_field - self._prev_field
         # concat every vectors as a single state
-        state = np.concatenate([field, player])
+        state = np.concatenate([diff_field, player])
         # reverse the input to accomodate the requirement
         state = state.reshape([1, state.shape[0]])
 
         p_action = self.model.predict(state, batch_size=1).flatten()
         # normalize the PDF
-        p_action = p_action / np.sum(p_action)
+        p_action /= np.sum(p_action)
 
         # determine the action according to the PDF
         action = np.random.choice(self.env.get_action_space().n, p=p_action)
+        #action = np.argmax(p_action)
         if test:
             return action
         else:
@@ -186,19 +199,24 @@ class Agent_PG(Agent):
         # binarize, {0, 1}
         _, observation = cv2.threshold(observation.astype(np.uint8), 0, 1,
                                        cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        # convert back to float
+        observation = observation.astype('float32')
+
+        # opponent
+        #   x=16, y=34, w=4, h=160
+        opponent = observation[34:194, 19]
+        opponent /= np.sum(opponent)
 
         # field
         #   x=20, y=34, w=120, h=160
         field = observation[34:194, 20:140]
+        # apply weights (w length) for the field position
+        weights = np.arange(1, 121).astype('float32') / 120
+        field = np.dot(field, weights)
+
         # player
         #   x=140, y=34, w=4, h=160
         player = observation[34:194, 140]
-        # opponent
-        #   x=16, y=34, w=4, h=160
-        opponent = observation[34:194, 19]
-
-        # apply weights (w length) for the field position
-        weights = np.arange(1, 121)
-        field = np.dot(field, weights)
+        player /= np.sum(field)
 
         return opponent, field, player

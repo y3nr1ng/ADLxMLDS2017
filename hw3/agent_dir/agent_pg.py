@@ -85,7 +85,7 @@ class Agent_PG(Agent):
         while not done:
             # execute a step
             action, p_action = self.make_action(observation, test=False)
-            #pprint(['{0:.4f}'.format(i) for i in p_action])
+            pprint('{} {}'.format(['{0:.3f}'.format(i) for i in p_action], action))
             observation, reward, done, _ = self.env.step(action)
 
             score += reward
@@ -102,7 +102,7 @@ class Agent_PG(Agent):
             # calculate probability gradient
             p_decision = to_categorical(action,
                                         num_classes=self.env.get_action_space().n)
-            gradient = p_decision.astype('float32') - p_action
+            gradient = p_decision.astype(np.float32) - p_action
 
             # remember the result
             entry = Agent_PG.History(state, p_action, gradient, reward)
@@ -131,7 +131,7 @@ class Agent_PG(Agent):
         return score, loss
 
     def _discount_rewards(self, rewards, gamma=0.99):
-        d_rewards = np.zeros_like(rewards).astype('float32')
+        d_rewards = np.zeros_like(rewards).astype(np.float32)
         running_add = 0
         for i in reversed(range(rewards.size)):
             if rewards[i] != 0:
@@ -193,29 +193,24 @@ class Agent_PG(Agent):
             player: np.array
                 player status
         """
-        # convert to grayscale
-        observation = np.dot(observation[..., :3], [0.299, 0.587, 0.114])
-        # binarize, {0, 1}
-        _, observation = cv2.threshold(observation.astype(np.uint8), 0, 1,
-                                       cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        # convert back to float
-        observation = observation.astype('float32')
+        # convert to red layer float
+        observation = observation[..., 2].astype(np.float32)
+        observation[observation < 50] = 0.
+        observation[observation >= 50] = 1.
 
         # opponent
         #   x=16, y=34, w=4, h=160
         opponent = observation[34:194, 19]
-        opponent /= np.sum(opponent)
 
         # field
         #   x=20, y=34, w=120, h=160
         field = observation[34:194, 20:140]
         # apply weights (w length) for the field position
-        weights = np.arange(1, 121).astype('float32') / 120
+        weights = np.arange(1, 121, dtype=np.float32) / 120
         field = np.dot(field, weights)
 
         # player
         #   x=140, y=34, w=4, h=160
         player = observation[34:194, 140]
-        player /= np.sum(player)
 
         return opponent, field, player

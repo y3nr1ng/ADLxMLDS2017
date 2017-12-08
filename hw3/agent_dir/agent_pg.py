@@ -7,7 +7,6 @@ import cv2
 from keras.models import Sequential
 from keras.layers import Dense, Activation
 from keras.optimizers import Adam
-from keras.initializers import TruncatedNormal
 from keras.utils import print_summary, to_categorical
 
 from pprint import pprint
@@ -42,7 +41,7 @@ class Agent_PG(Agent):
         in_dim = 160 * 2
         out_dim = self.env.get_action_space().n
 
-        init = TruncatedNormal()
+        init = 'glorot_normal'
         model = Sequential([
             Dense(128, input_shape=(in_dim, ), activation='relu', kernel_initializer=init),
             Dense(32, activation='relu', kernel_initializer=init),
@@ -66,7 +65,7 @@ class Agent_PG(Agent):
         """
         Implement your training algorithm here
         """
-        for i_ep in range(200):
+        for i_ep in range(3000):
             score, loss = self._train_once()
             print('ep {}, score = {}, loss = {}'.format(i_ep, score, loss))
         self.model.save_weights(Agent_PG.WEIGHT_FILE)
@@ -217,6 +216,6 @@ class Agent_PG(Agent):
         # player
         #   x=140, y=34, w=4, h=160
         player = observation[34:194, 140]
-        player /= np.sum(field)
+        player /= np.sum(player)
 
         return opponent, field, player

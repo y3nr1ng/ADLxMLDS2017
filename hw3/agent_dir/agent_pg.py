@@ -98,7 +98,7 @@ class Agent_PG(Agent):
                 diff_field = curr_field
             else:
                 diff_field = curr_field - prev_field
-            state = np.concatenate([diff_field, player]).astype('float32')
+            state = np.concatenate([diff_field, player])
 
             # calculate probability gradient
             p_decision = to_categorical(action,

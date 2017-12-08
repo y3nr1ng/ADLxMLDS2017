@@ -5,7 +5,7 @@ from collections import namedtuple
 import numpy as np
 import cv2
 from keras.models import Sequential
-from keras.layers import Dense, Activation
+from keras.layers import Reshape, Conv2D, Flatten, Dense
 from keras.optimizers import Adam
 from keras.utils import print_summary, to_categorical
 
@@ -16,8 +16,6 @@ class Agent_PG(Agent):
     WEIGHT_FILE = 'agent_pg_weight.h5'
     History = namedtuple('History',
                          ['state', 'probability', 'gradient', 'reward'])
-
-    t = 0
 
     def __init__(self, env, args):
         """
@@ -32,30 +30,26 @@ class Agent_PG(Agent):
             self.model.load_weights(Agent_PG.WEIGHT_FILE)
         self._compile_network()
 
-        self._prev_field = None
+        self._prev_state = None
 
     def _build_network(self):
         """
         Create a base network.
         """
-        # parse network size
-        #   in: 3 types of input, (field, player)
-        #   out: n actions
-        in_dim = 160 * 2
-        out_dim = self.env.get_action_space().n
-
-        init = 'glorot_normal'
         model = Sequential([
-            Dense(128, input_shape=(in_dim, ), activation='relu', kernel_initializer=init),
-            Dense(32, activation='relu', kernel_initializer=init),
-            Dense(out_dim, activation='softmax')
+            Conv2D(16, (4, 6), strides=(2, 1), padding='same', input_shape=(80, 61, 1),
+                   activation='relu', kernel_initializer='he_uniform'),
+            Flatten(),
+            Dense(128, activation='relu', kernel_initializer='he_uniform'),
+            Dense(32, activation='relu', kernel_initializer='he_uniform'),
+            Dense(self.env.get_action_space().n, activation='softmax')
         ])
         print_summary(model)
         self.model = model
 
     def _compile_network(self, lr=1e-3):
-        optimizer = Adam(lr=lr)
-        self.model.compile(optimizer=optimizer, loss='categorical_crossentropy')
+        self.model.compile(optimizer=Adam(lr=lr),
+                           loss='categorical_crossentropy')
 
     def init_game_setting(self):
         """
@@ -68,7 +62,7 @@ class Agent_PG(Agent):
         """
         Implement your training algorithm here
         """
-        for i_ep in range(1000):
+        for i_ep in range(500):
             score, loss = self._train_once()
             print('ep {}, score = {}, loss = {:.6f}'.format(i_ep, score, loss))
         self.model.save_weights(Agent_PG.WEIGHT_FILE)
@@ -84,7 +78,8 @@ class Agent_PG(Agent):
 
         # run a single episode
         done = False
-        prev_field = None
+        prev_state = None
+        t = 0
         while not done:
             # execute a step
             action, p_action = self.make_action(observation, test=False)
@@ -93,14 +88,15 @@ class Agent_PG(Agent):
 
             score += reward
 
-            opponent, curr_field, player = Agent_PG._preprocess(observation)
+            curr_state = Agent_PG._preprocess(observation)
             # calculate field differences
-            if prev_field is None:
-                diff_field = curr_field
+            if prev_state is None:
+                diff_state = np.zeros_like(curr_state)
             else:
-                diff_field = curr_field - prev_field
-            prev_field = curr_field
-            state = np.concatenate([diff_field, player])
+                diff_state = curr_state - prev_state
+            prev_state = curr_state
+            #cv2.imwrite('t{}.png'.format(t), np.squeeze(diff_state))
+            #t += 1
 
             # calculate probability gradient
             p_decision = to_categorical(action,
@@ -108,10 +104,11 @@ class Agent_PG(Agent):
             gradient = p_decision.astype(np.float32) - p_action
 
             # remember the result
-            entry = Agent_PG.History(state, p_action, gradient, reward)
+            entry = Agent_PG.History(diff_state, p_action, gradient, reward)
             history.append(entry)
 
         # extract the results
+        pprint(history[-1].probability)
         states, probability, gradients, rewards = zip(*history)
 
         # discount rewards
@@ -126,7 +123,7 @@ class Agent_PG(Agent):
         gradients *= rewards
 
         # batch training
-        X = np.vstack(states)
+        X = np.stack(states)
         probability = np.vstack(probability)
         Y = probability + lr * gradients
         loss = self.model.train_on_batch(X, Y)
@@ -155,19 +152,16 @@ class Agent_PG(Agent):
             action: int
                 the predicted action from trained model
         """
-        opponent, curr_field, player = Agent_PG._preprocess(observation)
+        curr_state = Agent_PG._preprocess(observation)
         # calculate field differences
-        if self._prev_field is None:
-            self._prev_field = curr_field
-            diff_field = curr_field
+        if self._prev_state is None:
+            diff_state = np.zeros_like(curr_state)
         else:
-            diff_field = curr_field - self._prev_field
-        # concat every vectors as a single state
-        state = np.concatenate([diff_field, player])
-        # reverse the input to accomodate the requirement
-        state = state.reshape([1, state.shape[0]])
+            diff_state = curr_state - self._prev_state
+        self._prev_state = curr_state
 
-        p_action = self.model.predict(state, batch_size=1).flatten()
+        diff_state = np.expand_dims(diff_state, axis=0)
+        p_action = self.model.predict(diff_state, batch_size=1).flatten()
         # normalize the PDF
         p_action /= np.sum(p_action)
 
@@ -189,34 +183,15 @@ class Agent_PG(Agent):
                 current RGB screen of game, shape: (210, 160, 3)
 
         Return:
-            opponent: np.array
-                opponent status
-            field: np.array
-                field status, weighted by distance to the player
-            player: np.array
-                player status
+            observation: np.array
+                processed binary image, only play field and our board
         """
-        # convert to red layer float
+        # convert red layer binarized float
         observation = observation[..., 2].astype(np.float32)
         observation[observation < 50] = 0.
         observation[observation >= 50] = 1.
 
-        # opponent
-        #   x=16, y=34, w=4, h=160
-        opponent = observation[34:194, 19]
-
         # field
         #   x=20, y=34, w=120, h=160
-        field = observation[34:194, 20:140]
-        # apply weights (w length) for the field position
-        #weights = 2**(np.arange(1, 121, dtype=np.float32) / 120) / 2
-        #field = np.sum(field*weights, axis=1)
-        field = np.sum(field, axis=1)
-        if np.amax(field) != 0:
-            field /= np.amax(field)
-
-        # player
-        #   x=140, y=34, w=4, h=160
-        player = observation[34:194, 140]
-
-        return opponent, field, player
+        observation = observation[34:194:2, 20:142:2]
+        return np.expand_dims(observation, axis=2)

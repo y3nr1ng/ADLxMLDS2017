@@ -158,10 +158,10 @@ class Agent_PG(Agent):
         opponent, curr_field, player = Agent_PG._preprocess(observation)
         # calculate field differences
         if self._prev_field is None:
-            self._prev_field = curr_field
             diff_field = curr_field
         else:
             diff_field = curr_field - self._prev_field
+        self._prev_field = curr_field
         # concat every vectors as a single state
         state = np.concatenate([diff_field, player])
         # reverse the input to accomodate the requirement
@@ -211,7 +211,7 @@ class Agent_PG(Agent):
         # apply weights (w length) for the field position
         #weights = 2**(np.arange(1, 121, dtype=np.float32) / 120) / 2
         #field = np.sum(field*weights, axis=1)
-        field = np.sum(field axis=1)
+        field = np.sum(field, axis=1)
         if np.amax(field) != 0:
             field /= np.amax(field)
 

@@ -17,6 +17,8 @@ class Agent_PG(Agent):
     History = namedtuple('History',
                          ['state', 'probability', 'gradient', 'reward'])
 
+    t = 0
+
     def __init__(self, env, args):
         """
         Initialize every things you need here.
@@ -207,9 +209,12 @@ class Agent_PG(Agent):
         #   x=20, y=34, w=120, h=160
         field = observation[34:194, 20:140]
         # apply weights (w length) for the field position
-        weights = np.arange(1, 121, dtype=np.float32) / 120
-        field = np.sum(field*weights, axis=1)
-
+        #weights = 2**(np.arange(1, 121, dtype=np.float32) / 120) / 2
+        #field = np.sum(field*weights, axis=1)
+        field = np.sum(field axis=1)
+        if np.amax(field) != 0:
+            field /= np.amax(field)
+            
         # player
         #   x=140, y=34, w=4, h=160
         player = observation[34:194, 140]

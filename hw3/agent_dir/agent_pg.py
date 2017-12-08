@@ -11,9 +11,6 @@ from keras.utils import print_summary, to_categorical
 
 from pprint import pprint
 np.set_printoptions(threshold=np.inf)
-import matplotlib.pyplot as plt
-
-plt.ion()
 
 class Agent_PG(Agent):
     WEIGHT_FILE = 'agent_pg_weight.h5'

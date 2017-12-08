@@ -30,16 +30,16 @@ class Agent_PG(Agent):
             self.model.load_weights(Agent_PG.WEIGHT_FILE)
         self._compile_network()
 
-        self._prev_state = None
+        self._prev_field = None
 
     def _build_network(self):
         """
         Create a base network.
         """
         model = Sequential([
-            Dense(256, input_shape=(160*2, ), activation='relu',
+            Dense(128, input_shape=(80*3, ), activation='relu',
                   kernel_initializer='he_uniform'),
-            Dense(128, activation='relu', kernel_initializer='he_uniform'),
+            Dense(64, activation='relu', kernel_initializer='he_uniform'),
             Dense(32, activation='relu', kernel_initializer='he_uniform'),
             Dense(self.env.get_action_space().n, activation='softmax')
         ])
@@ -61,9 +61,14 @@ class Agent_PG(Agent):
         """
         Implement your training algorithm here
         """
+        avg_score = None
         for i_ep in range(10000):
             score, loss = self._train_once()
-            print('ep {}, score = {}, loss = {:.6f}'.format(i_ep, score, loss))
+            if avg_score is None:
+                avg_score = score
+            else:
+                avg_score = avg_score*0.99 + score*0.01
+            print('ep {}, score(avg) = {}({:.06f}), loss = {:.06f}'.format(i_ep, score, avg_score, loss))
             if i_ep % 100 == 0:
                 self.model.save_weights(Agent_PG.WEIGHT_FILE)
                 print('...saved')
@@ -80,7 +85,7 @@ class Agent_PG(Agent):
 
         # run a single episode
         done = False
-        prev_state = None
+        prev_field = None
         t = 0
         while not done:
             # execute a step
@@ -90,13 +95,12 @@ class Agent_PG(Agent):
 
             score += reward
 
-            curr_state = Agent_PG._preprocess(observation)
-            # calculate field differences
-            if prev_state is None:
-                diff_state = np.zeros_like(curr_state)
-            else:
-                diff_state = curr_state - prev_state
-            prev_state = curr_state
+            curr_field, player = Agent_PG._preprocess(observation)
+            if prev_field is None:
+                prev_field = np.zeros_like(curr_field)
+            # concat all the variables
+            state = np.hstack([player, curr_field, prev_field])
+            prev_field = curr_field
 
             # calculate probability gradient
             p_decision = to_categorical(action,
@@ -104,11 +108,10 @@ class Agent_PG(Agent):
             gradient = p_decision.astype(np.float32) - p_action
 
             # remember the result
-            entry = Agent_PG.History(diff_state, p_action, gradient, reward)
+            entry = Agent_PG.History(state, p_action, gradient, reward)
             history.append(entry)
 
         # extract the results
-        pprint(history[-1].probability)
         states, probability, gradients, rewards = zip(*history)
 
         # discount rewards
@@ -152,16 +155,15 @@ class Agent_PG(Agent):
             action: int
                 the predicted action from trained model
         """
-        curr_state = Agent_PG._preprocess(observation)
-        # calculate field differences
-        if self._prev_state is None:
-            diff_state = np.zeros_like(curr_state)
-        else:
-            diff_state = curr_state - self._prev_state
-        self._prev_state = curr_state
+        curr_field, player = Agent_PG._preprocess(observation)
+        if self._prev_field is None:
+            self._prev_field = np.zeros_like(curr_field)
+        # concat all the variables
+        state = np.hstack([player, curr_field, self._prev_field])
+        self._prev_field = curr_field
 
-        diff_state = np.expand_dims(diff_state, axis=0)
-        p_action = self.model.predict(diff_state, batch_size=1).flatten()
+        state = np.expand_dims(state, axis=0)
+        p_action = self.model.predict(state, batch_size=1).flatten()
         # normalize the PDF
         p_action /= np.sum(p_action)
 
@@ -192,13 +194,12 @@ class Agent_PG(Agent):
 
         # field
         #   x=20, y=34, w=120, h=160
-        field = observation[34:194, 20:140]
-        player = observation[34:194, 140]
+        field = observation[34:194:2, 20:140:2]
+        player = observation[34:194:2, 140]
 
         # apply the weight
-        weights = np.arange(1, 121, dtype=np.float32) / 120
+        weights = np.arange(1, 61, dtype=np.float32) / 60
         field *= weights
         field = np.sum(field, axis=1)
 
-        observation = np.hstack([field, player])
-        return observation
+        return field, player

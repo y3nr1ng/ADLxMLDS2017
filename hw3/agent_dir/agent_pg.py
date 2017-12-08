@@ -37,9 +37,8 @@ class Agent_PG(Agent):
         Create a base network.
         """
         model = Sequential([
-            Conv2D(16, (4, 6), strides=(2, 1), padding='same', input_shape=(80, 61, 1),
-                   activation='relu', kernel_initializer='he_uniform'),
-            Flatten(),
+            Dense(256, input_shape=(160*2, ), activation='relu',
+                  kernel_initializer='he_uniform'),
             Dense(128, activation='relu', kernel_initializer='he_uniform'),
             Dense(32, activation='relu', kernel_initializer='he_uniform'),
             Dense(self.env.get_action_space().n, activation='softmax')
@@ -62,12 +61,15 @@ class Agent_PG(Agent):
         """
         Implement your training algorithm here
         """
-        for i_ep in range(500):
+        for i_ep in range(10000):
             score, loss = self._train_once()
             print('ep {}, score = {}, loss = {:.6f}'.format(i_ep, score, loss))
+            if i_ep % 100 == 0:
+                self.model.save_weights(Agent_PG.WEIGHT_FILE)
+                print('...saved')
         self.model.save_weights(Agent_PG.WEIGHT_FILE)
 
-    def _train_once(self, gamma=0.99, lr=1e-2):
+    def _train_once(self, gamma=0.99, lr=1e-3):
         """
         Train a single episode.
         """
@@ -95,8 +97,6 @@ class Agent_PG(Agent):
             else:
                 diff_state = curr_state - prev_state
             prev_state = curr_state
-            #cv2.imwrite('t{}.png'.format(t), np.squeeze(diff_state))
-            #t += 1
 
             # calculate probability gradient
             p_decision = to_categorical(action,
@@ -123,7 +123,7 @@ class Agent_PG(Agent):
         gradients *= rewards
 
         # batch training
-        X = np.stack(states)
+        X = np.vstack(states)
         probability = np.vstack(probability)
         Y = probability + lr * gradients
         loss = self.model.train_on_batch(X, Y)
@@ -167,7 +167,6 @@ class Agent_PG(Agent):
 
         # determine the action according to the PDF
         action = np.random.choice(self.env.get_action_space().n, p=p_action)
-        #action = np.argmax(p_action)
         if test:
             return action
         else:
@@ -193,5 +192,13 @@ class Agent_PG(Agent):
 
         # field
         #   x=20, y=34, w=120, h=160
-        observation = observation[34:194:2, 20:142:2]
-        return np.expand_dims(observation, axis=2)
+        field = observation[34:194, 20:140]
+        player = observation[34:194, 140]
+
+        # apply the weight
+        weights = np.arange(1, 121, dtype=np.float32) / 120
+        field *= weights
+        field = np.sum(field, axis=1)
+
+        observation = np.hstack([field, player])
+        return observation

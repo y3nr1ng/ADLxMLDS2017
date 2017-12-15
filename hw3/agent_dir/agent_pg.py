@@ -37,7 +37,7 @@ class Agent_PG(Agent):
         Create a base network.
         """
         model = Sequential([
-            Conv2D(16, (8, 8), activation='relu', strides=(4, 4), input_shape=(STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT))
+            Conv2D(16, (8, 8), activation='relu', strides=(4, 4), input_shape=(STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT)),
             Conv2D(32, (4, 4), activation='relu', strides=(2, 2)),
             Flatten(),
             Dense(128, activation='relu'),

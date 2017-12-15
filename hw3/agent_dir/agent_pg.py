@@ -38,8 +38,6 @@ class Agent_PG(Agent):
             self.model.load_weights(Agent_PG.WEIGHT_FILE)
         self._compile_network()
 
-        self._prev_field = None
-
     def _build_network(self):
         """
         Create a base network.
@@ -67,10 +65,11 @@ class Agent_PG(Agent):
         """
         pass
 
-    def train(self, num_ep=1, save_interval=500):
+    def train(self, num_ep=1500, save_interval=100):
         """
         Implement your training algorithm here
         """
+        log_file = open('log.txt', 'a')
         avg_score = None
         for i_ep in range(num_ep):
             score, loss = self._train_once()
@@ -82,7 +81,9 @@ class Agent_PG(Agent):
             if i_ep % save_interval == 0:
                 self.model.save_weights(Agent_PG.WEIGHT_FILE)
                 print('...saved')
+            log_file.write('{}, {}, {}, {}\n'.format(i_ep, score, avg_score, loss))
         self.model.save_weights(Agent_PG.WEIGHT_FILE)
+        log_file.close()
 
     def _train_once(self, gamma=0.99, lr=1e-3):
         """

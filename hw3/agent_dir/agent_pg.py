@@ -80,6 +80,7 @@ class Agent_PG(Agent):
             print('ep {}, score(avg) = {}({:.06f}), loss = {:.06f}'.format(i_ep, score, avg_score, loss))
             if i_ep % save_interval == 0:
                 self.model.save_weights(Agent_PG.WEIGHT_FILE)
+                log_file.flush()
                 print('...saved')
             log_file.write('{}, {}, {}, {}\n'.format(i_ep, score, avg_score, loss))
         self.model.save_weights(Agent_PG.WEIGHT_FILE)

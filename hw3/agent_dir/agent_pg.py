@@ -123,7 +123,6 @@ class Agent_PG(Agent):
         rewards = self._discount_rewards(rewards, gamma=gamma)
 
         # attenuate the gradients
-        gradients = np.cumsum(gradients, axis=0)
         gradients *= rewards
 
         X = np.vstack([states])

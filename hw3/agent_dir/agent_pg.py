@@ -122,10 +122,8 @@ class Agent_PG(Agent):
 
         rewards = self._discount_rewards(rewards, gamma=gamma)
 
-        # avoid log(0)
-        gradients = np.maximum(1.0e-5, np.minimum(1.0-1e-5, gradients))
         # attenuate the gradients
-        gradients = np.cumsum(np.log(gradients), axis=0)
+        gradients = np.cumsum(gradients, axis=0)
         gradients *= rewards
 
         X = np.vstack([states])

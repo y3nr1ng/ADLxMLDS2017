@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 from keras.models import Sequential
 from keras.layers import Reshape, Conv2D, Flatten, Dense
-from keras.optimizers import Adam
+from keras.optimizers import RMSprop
 from keras.utils import print_summary, to_categorical
 
 from pprint import pprint
@@ -37,17 +37,17 @@ class Agent_PG(Agent):
         Create a base network.
         """
         model = Sequential([
-            Dense(128, input_shape=(80*3, ), activation='relu',
-                  kernel_initializer='he_uniform'),
-            Dense(64, activation='relu', kernel_initializer='he_uniform'),
-            Dense(32, activation='relu', kernel_initializer='he_uniform'),
+            Conv2D(16, (8, 8), activation='relu', strides=(4, 4), input_shape=(STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT))
+            Conv2D(32, (4, 4), activation='relu', strides=(2, 2)),
+            Flatten(),
+            Dense(128, activation='relu'),
             Dense(self.env.get_action_space().n, activation='softmax')
         ])
         print_summary(model)
         self.model = model
 
     def _compile_network(self, lr=1e-3):
-        self.model.compile(optimizer=Adam(lr=lr),
+        self.model.compile(optimizer=RMSprop(lr=lr, decay=0.99),
                            loss='categorical_crossentropy')
 
     def init_game_setting(self):

@@ -97,13 +97,12 @@ class Agent_DQN(Agent):
 
     def build_network(self):
         model = Sequential()
-        #model.add(Convolution2D(32, 8, 8, subsample=(4, 4), activation='relu', input_shape=(STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT)))
         model.add(Conv2D(32, (8, 8), activation='relu', strides=(4, 4), input_shape=(STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT)))
         model.add(Conv2D(64, (4, 4), activation='relu', strides=(2, 2)))
         model.add(Conv2D(64, (3, 3), activation='relu', strides=(1, 1)))
         model.add(Flatten())
-        model.add(Dense(512, activation='relu'))
-        model.add(Dense(self.num_actions))
+        model.add(Dense(512, activation='lrelu'))
+        model.add(Dense(self.num_actions, activation='softmax'))
 
         s = tf.placeholder(tf.float32, [None, STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT])
         q_values = model(s)

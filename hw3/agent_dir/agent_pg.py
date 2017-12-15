@@ -67,7 +67,7 @@ class Agent_PG(Agent):
         """
         pass
 
-    def train(self, num_ep=100, save_interval=500):
+    def train(self, num_ep=1, save_interval=500):
         """
         Implement your training algorithm here
         """
@@ -102,7 +102,7 @@ class Agent_PG(Agent):
                 state = np.zeros_like(curr_state)
             prev_state = curr_state
 
-            action, predict, p_action = self.make_action(state, test=False)
+            action, p_action = self.make_action(state, test=False)
             observation, reward, done, _ = self.env.step(action)
             score += reward
 
@@ -110,7 +110,7 @@ class Agent_PG(Agent):
             p_decision = to_categorical(action, num_classes=self._num_actions)
             gradient = p_decision.astype(np.float32) - p_action
 
-            entry = Agent_PG.History(state, predict, gradient, reward)
+            entry = Agent_PG.History(state, p_action, gradient, reward)
             history.append(entry)
 
         states, probability, gradients, rewards = zip(*history)
@@ -125,6 +125,7 @@ class Agent_PG(Agent):
         rewards /= np.std(rewards)
 
         # attenuate the gradients
+        gradients = np.cumsum(gradients, axis=0)
         gradients *= rewards
 
         # batch training
@@ -149,16 +150,14 @@ class Agent_PG(Agent):
         Return predicted action of your agent
         """
         state = np.expand_dims(state, axis=0)
-        predict = self.model.predict(state, batch_size=1).flatten()
-        # normalize the PDF
-        p_action = predict / np.sum(predict)
+        p_action = self.model.predict(state, batch_size=1).flatten()
 
         # determine the action according to the PDF
         action = np.random.choice(self._num_actions, p=p_action)
         if test:
             return action
         else:
-            return action, predict, p_action
+            return action, p_action
 
     @staticmethod
     def _preprocess(observation, size=(80, 80)):

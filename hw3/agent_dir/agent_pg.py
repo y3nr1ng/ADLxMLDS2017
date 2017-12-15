@@ -119,17 +119,12 @@ class Agent_PG(Agent):
         gradients = np.vstack(gradients)
         rewards = np.vstack(rewards)
 
-        # discount rewards
         rewards = self._discount_rewards(rewards, gamma=gamma)
-        # normalize
-        rewards -= np.mean(rewards)
-        rewards /= np.std(rewards)
 
         # attenuate the gradients
-        gradients = np.cumsum(gradients, axis=0)
+        gradients = np.cumsum(np.log(gradients), axis=0)
         gradients *= rewards
 
-        # batch training
         X = np.vstack([states])
         Y = probability + lr * gradients
         loss = self.model.train_on_batch(X, Y)
@@ -144,6 +139,10 @@ class Agent_PG(Agent):
                 running_add = 0
             running_add = running_add * gamma + rewards[i]
             d_rewards[i] = running_add
+
+        rewards -= np.mean(rewards)
+        rewards /= np.std(rewards)
+
         return d_rewards
 
     def make_action(self, state, test=True):

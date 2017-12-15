@@ -23,8 +23,8 @@ GAMMA = 0.99  # Discount factor
 EXPLORATION_STEPS = 500000  # Number of steps over which the initial value of epsilon is linearly annealed to its final value
 INITIAL_EPSILON = 1.0  # Initial value of epsilon in epsilon-greedy
 FINAL_EPSILON = 0.05  # Final value of epsilon in epsilon-greedy
-INITIAL_REPLAY_SIZE = 50000  # Number of steps to populate the replay memory before training starts
-NUM_REPLAY_MEMORY = 50000  # Number of replay memory the agent uses for training
+INITIAL_REPLAY_SIZE = 20000  # Number of steps to populate the replay memory before training starts
+NUM_REPLAY_MEMORY = 20000  # Number of replay memory the agent uses for training
 BATCH_SIZE = 32  # Mini batch size
 TARGET_UPDATE_INTERVAL = 2000  # The frequency with which the target network is updated
 TRAIN_INTERVAL = 4  # The agent selects 4 actions between successive updates
@@ -123,7 +123,7 @@ class Agent_DQN(Agent):
         linear_part = error - quadratic_part
         loss = tf.reduce_mean(0.5 * tf.square(quadratic_part) + linear_part)
 
-        optimizer = tf.train.RMSPropOptimizer(LEARNING_RATE, momentum=MOMENTUM, epsilon=MIN_GRAD)
+        optimizer = tf.train.RMSPropOptimizer(LEARNING_RATE, momentum=MOMENTUM, epsilon=MIN_GRAD, decay=0.99)
         grads_update = optimizer.minimize(loss, var_list=q_network_weights)
 
         return a, y, loss, grads_update

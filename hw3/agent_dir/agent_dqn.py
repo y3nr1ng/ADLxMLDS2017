@@ -89,7 +89,7 @@ class Agent_DQN(Agent):
 
         self.sess.run(tf.global_variables_initializer())
 
-        if args.test_dqn:
+        if args.test_dqn or LOAD_NETWORK:
             self.load_network()
 
         # Initialize target network

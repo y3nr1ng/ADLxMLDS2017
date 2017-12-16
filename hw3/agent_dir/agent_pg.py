@@ -43,13 +43,72 @@ class Agent_PG(Agent):
         Testing function will call this function at the begining of new game
         Put anything you want to initialize if necessary
         """
-        pass
+        self.prev_x = None
 
-    def train(self):
+    def train(self, num_ep=15000):
         """
         Implement your training algorithm here
         """
-        pass
+        observation = self.env.reset()
+        xs,hs,dlogps,drs = [],[],[],[]
+        running_reward = None
+        reward_sum = 0
+        episode_number = 0
+        while episode_number < num_ep:
+            action, aprob = self.make_action(observation)
+
+            # record various intermediates (needed later for backprop)
+            xs.append(x) # observation
+            hs.append(h) # hidden state
+            y = 1 if action == 2 else 0 # a "fake label"
+            dlogps.append(y - aprob) # grad that encourages the action that was taken to be taken (see http://cs231n.github.io/neural-networks-2/#losses if confused)
+
+            # step the environment and get new measurements
+            observation, reward, done, info = env.step(action)
+            reward_sum += reward
+
+            drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
+
+            if done: # an episode finished
+                episode_number += 1
+
+                # stack together all inputs, hidden states, action gradients, and rewards for this episode
+                epx = np.vstack(xs)
+                eph = np.vstack(hs)
+                epdlogp = np.vstack(dlogps)
+                epr = np.vstack(drs)
+                xs,hs,dlogps,drs = [],[],[],[] # reset array memory
+
+                # compute the discounted reward backwards through time
+                discounted_epr = discount_rewards(epr)
+                # standardize the rewards to be unit normal (helps control the gradient estimator variance)
+                discounted_epr -= np.mean(discounted_epr)
+                discounted_epr /= np.std(discounted_epr)
+
+                epdlogp *= discounted_epr # modulate the gradient with advantage (PG magic happens right here.)
+                grad = policy_backward(eph, epdlogp)
+                for k in model:
+                    grad_buffer[k] += grad[k] # accumulate grad over batch
+
+                # perform rmsprop parameter update every batch_size episodes
+                if episode_number % batch_size == 0:
+                    for k,v in model.items():
+                        g = grad_buffer[k] # gradient
+                        rmsprop_cache[k] = decay_rate * rmsprop_cache[k] + (1 - decay_rate) * g**2
+                        model[k] += learning_rate * g / (np.sqrt(rmsprop_cache[k]) + 1e-5)
+                        grad_buffer[k] = np.zeros_like(v) # reset batch gradient buffer
+
+                # boring book-keeping
+                running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
+                print('resetting env. episode reward total was {}. running mean: {}'.format(reward_sum, running_reward))
+                if episode_number % 100 == 0:
+                    pickle.dump(model, open('agent_pg_weight.p', 'wb'))
+                reward_sum = 0
+                observation = env.reset() # reset env
+                prev_x = None
+
+            if reward != 0: # Pong has either +1 or -1 reward exactly when game ends.
+                print('ep {}: game finished, reward: {}'.format(episode_number, reward))
 
     def discount_rewards(r):
         """

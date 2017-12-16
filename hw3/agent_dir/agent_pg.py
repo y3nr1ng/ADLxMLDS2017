@@ -1,28 +1,23 @@
 from agent_dir.agent import Agent
 
-from collections import namedtuple
-
 import numpy as np
-import cv2
-from keras.models import Sequential
-from keras.layers import Reshape, Conv2D, Flatten, Dense
-from keras.optimizers import RMSprop
-from keras.utils import print_summary, to_categorical
+import pickle as pickle
 
-#from keras import backend as K
-#K.set_image_dim_ordering('th')
+# hyperparameters
+H = 200 # number of hidden layer neurons
+batch_size = 10 # every how many episodes to do a param update?
+learning_rate = 1e-4
+gamma = 0.99 # discount factor for reward
+decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
+resume = True # resume from previous checkpoint?
+render = False
 
-from pprint import pprint
-np.set_printoptions(threshold=np.inf)
+D = 80 * 80 # input dimensionality: 80x80 grid
+
+def sigmoid(x):
+    return 1.0 / (1.0 + np.exp(-x)) # sigmoid "squashing" function to interval [0,1]
 
 class Agent_PG(Agent):
-    WEIGHT_FILE = 'agent_pg_weight.h5'
-    History = namedtuple('History',
-                         ['state', 'probability', 'gradient', 'reward'])
-
-    FRAME_WIDTH = 80
-    FRAME_HEIGHT = 80
-
     def __init__(self, env, args):
         """
         Initialize every things you need here.
@@ -30,33 +25,18 @@ class Agent_PG(Agent):
         """
         super(Agent_PG,self).__init__(env)
 
-        self._num_actions = self.env.get_action_space().n
-
-        self._build_network()
         if args.test_pg or args.reuse:
-            print('load weights from \'{}\''.format(Agent_PG.WEIGHT_FILE))
-            self.model.load_weights(Agent_PG.WEIGHT_FILE)
-        self._compile_network()
+            model = pickle.load(open('agent_pg_weight.p', 'rb'))
+        else:
+            model = {}
+            model['W1'] = np.random.randn(H,D) / np.sqrt(D) # "Xavier" initialization
+            model['W2'] = np.random.randn(H) / np.sqrt(H)
 
-    def _build_network(self):
-        """
-        Create a base network.
-        """
-        size = (Agent_PG.FRAME_WIDTH, Agent_PG.FRAME_HEIGHT, 1)
-        model = Sequential([
-            Conv2D(16, (8, 8), activation='relu', strides=(4, 4),
-                   input_shape=size, data_format='channels_last'),
-            Conv2D(32, (4, 4), activation='relu', strides=(2, 2)),
-            Flatten(),
-            Dense(128, activation='relu'),
-            Dense(self._num_actions, activation='softmax')
-        ])
-        print_summary(model)
         self.model = model
+        self.grad_buffer = { k : np.zeros_like(v) for k,v in model.items() } # update buffers that add up gradients over a batch
+        self.rmsprop_cache = { k : np.zeros_like(v) for k,v in model.items() } # rmsprop memory
 
-    def _compile_network(self, lr=1e-3):
-        self.model.compile(optimizer=RMSprop(lr=lr, decay=0.99),
-                           loss='categorical_crossentropy')
+        self.prev_x = None
 
     def init_game_setting(self):
         """
@@ -65,111 +45,78 @@ class Agent_PG(Agent):
         """
         pass
 
-    def train(self, num_ep=3000, save_interval=100):
+    def train(self):
         """
         Implement your training algorithm here
         """
-        log_file = open('log.txt', 'a')
-        avg_score = None
-        for i_ep in range(num_ep):
-            score, loss = self._train_once()
-            if avg_score is None:
-                avg_score = score
-            else:
-                avg_score = avg_score*0.99 + score*0.01
-            print('ep {}, score(avg) = {}({:.06f}), loss = {:.06f}'.format(i_ep, score, avg_score, loss))
-            if i_ep % save_interval == 0:
-                self.model.save_weights(Agent_PG.WEIGHT_FILE)
-                log_file.flush()
-                print('...saved')
-            log_file.write('{}, {}, {}, {}\n'.format(i_ep, score, avg_score, loss))
-        self.model.save_weights(Agent_PG.WEIGHT_FILE)
-        log_file.close()
+        pass
 
-    def _train_once(self, gamma=0.99, lr=1e-3):
+    def discount_rewards(r):
         """
-        Train a single episode.
+        Take 1D float array of rewards and compute discounted reward.
         """
-        score = 0
-        history = []
-        prev_state = None
-
-        done = False
-        observation = self.env.reset()
-        while not done:
-            curr_state = Agent_PG._preprocess(observation)
-            if prev_state is not None:
-                state = curr_state - prev_state
-            else:
-                state = np.zeros_like(curr_state)
-            prev_state = curr_state
-
-            action, p_action = self.make_action(state, test=False)
-            observation, reward, done, _ = self.env.step(action)
-            score += reward
-
-            # decision gradient
-            p_decision = to_categorical(action, num_classes=self._num_actions)
-            #gradient = p_decision.astype(np.float32) - p_action
-            gradient = 1 - p_action
-
-            entry = Agent_PG.History(state, p_action, gradient, reward)
-            history.append(entry)
-
-        states, probability, gradients, rewards = zip(*history)
-        probability = np.vstack(probability)
-        gradients = np.vstack(gradients)
-        rewards = np.vstack(rewards)
-
-        rewards = self._discount_rewards(rewards, gamma=gamma)
-
-        # attenuate the gradients
-        gradients *= rewards
-
-        X = np.vstack([states])
-        Y = probability + lr * gradients
-        loss = self.model.train_on_batch(X, Y)
-
-        return score, loss
-
-    def _discount_rewards(self, rewards, gamma=0.99):
-        d_rewards = np.zeros_like(rewards).astype(np.float32)
+        discounted_r = np.zeros_like(r)
         running_add = 0
-        for i in reversed(range(rewards.size)):
-            if rewards[i] != 0:
-                running_add = 0
-            running_add = running_add * gamma + rewards[i]
-            d_rewards[i] = running_add
+        for t in reversed(range(0, r.size)):
+            if r[t] != 0:
+                running_add = 0 # reset the sum, since this was a game boundary (pong specific!)
+            running_add = running_add * gamma + r[t]
+            discounted_r[t] = running_add
+        return discounted_r
 
-        rewards -= np.mean(rewards)
-        rewards /= np.std(rewards)
-
-        return d_rewards
-
-    def make_action(self, state, test=True):
+    def policy_backward(self, eph, epdlogp):
         """
-        Return predicted action of your agent
-        """
-        state = np.expand_dims(state, axis=0)
-        p_action = self.model.predict(state, batch_size=1).flatten()
+        Backward pass. (eph is array of intermediate hidden states)
 
-        # determine the action according to the PDF
-        action = np.random.choice(self._num_actions, p=p_action)
+        Parameters
+        ----------
+        eph: np.array
+            array of intermediate hidden states
+        epdlogp: np.array
+            discounted log(P) gradients
+
+        Returns
+        -------
+        Updated hidden states.
+        """
+        dW2 = np.dot(eph.T, epdlogp).ravel()
+        dh = np.outer(epdlogp, self.model['W2'])
+        dh[eph <= 0] = 0 # backpro prelu
+        dW1 = np.dot(dh.T, epx)
+        return {'W1':dW1, 'W2':dW2}
+
+    def make_action(self, observation, test=True):
+        """
+        Return predicted action of your agent.
+        """
+        # preprocess the observation, set input to network to be difference image
+        cur_x = self.prepro(observation)
+        x = cur_x - self.prev_x if self.prev_x is not None else np.zeros(D)
+        self.prev_x = cur_x
+
+        # forward the policy network and sample an action from the returned probability
+        aprob, h = self.policy_forward(x)
+        action = 2 if np.random.uniform() < aprob else 3 # roll the dice!
+
         if test:
             return action
         else:
-            return action, p_action
+            return action, aprob
 
-    @staticmethod
-    def _preprocess(observation, size=(80, 80)):
+    def prepro(self, I):
         """
-        Preprocess the observation.
-        1) Convert to grayscale
-        2) Resize
+        Pre-process 210x160x3 uint8 frame into 6400 (80x80) 1D float vector.
         """
-        observation = np.dot(observation[..., :3], [0.2126, 0.7152, 0.0722])
-        observation = observation.astype(np.uint8)
+        I = I[35:195] # crop
+        I = I[::2,::2,0] # downsample by factor of 2
+        I[I == 144] = 0 # erase background (background type 1)
+        I[I == 109] = 0 # erase background (background type 2)
+        I[I != 0] = 1 # everything else (paddles, ball) just set to 1
+        return I.astype(np.float).ravel()
 
-        observation = cv2.resize(observation, size)
-
-        return np.expand_dims(observation.astype(np.float32), axis=2)
+    def policy_forward(self, x):
+        h = np.dot(self.model['W1'], x)
+        h[h<0] = 0 # ReLU nonlinearity
+        logp = np.dot(self.model['W2'], h)
+        p = sigmoid(logp)
+        return p, h # return probability of taking action 2, and hidden state

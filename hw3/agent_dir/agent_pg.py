@@ -65,7 +65,7 @@ class Agent_PG(Agent):
         """
         pass
 
-    def train(self, num_ep=1500, save_interval=100):
+    def train(self, num_ep=3000, save_interval=100):
         """
         Implement your training algorithm here
         """
@@ -110,7 +110,8 @@ class Agent_PG(Agent):
 
             # decision gradient
             p_decision = to_categorical(action, num_classes=self._num_actions)
-            gradient = p_decision.astype(np.float32) - p_action
+            #gradient = p_decision.astype(np.float32) - p_action
+            gradient = 1 - p_action
 
             entry = Agent_PG.History(state, p_action, gradient, reward)
             history.append(entry)

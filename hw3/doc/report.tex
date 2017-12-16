@@ -131,6 +131,7 @@
 \subsection{Policy Gradient}
 	模型參照了 \cite{DeepRein18:online} 的介紹。
 	由兩層 fully-connected layer 所構成，第一層由 200 個單元所構成，第二層則對應至輸出的動作數量（強制縮限到只剩下「Up」跟「Down」兩種動作）。
+	影像經過預處理縮小為 $80 \times 80$ 的方格，並且二值化。
 	
 	\begin{figure}[H]
 		\centering
@@ -139,6 +140,10 @@
 	\end{figure}
 	
 \subsection{DQN}
+	參考了 \cite{tokb23dq42:online} 的 GitHub 專案與助教所提供的提示。
+	總共有三層 Conv2D，單元數分別為 32/64/64，kernel 大小依序為 8/4/3，間隔取樣距離分別為 4/2/1（均為方陣）。
+	Conv2D 的 activation 方式均為 relu，而緊接在後的兩層 FC 則分別有 512 個單元與 6 個（總操作數量），activation 方式分別為 leaky ReLU 與 softmax。
+	影像經過預處理為 8-bit 灰階並縮小至 $84 \times 84$ 的方格。
 	
 	\begin{figure}[H]
 		\centering

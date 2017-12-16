@@ -158,11 +158,16 @@
 \section{參數調整}
 	選擇了 TARGET\_UPDATE\_INTERVAL（投影片當中的 target network update frequency）進行調整。
 	共計四種參數，1k/2k/5k/10k 剛好覆蓋了一個數量級之內的範圍，並且停在固定的 episodes 數。
+	
 	\begin{figure}[H]
 		\centering
 		\includegraphics[width=0.48\textwidth]{images/dqn_update}
 		\caption{學習曲線（未達 baseline）} \label{fig:dqn_update}
 	\end{figure}
+	
+	在搜尋參考用的模型，發現到這篇 \cite{Thetests90:online} 討論串，似乎這個參數會影響到模型學習的速度，考慮到時間有限，覺得這個參數可能會影響比較顯著。
+	不過原始文章似乎也說明了，更新頻率拉高的時候，會讓分數上升速度快了些，但後期上升的幅度會變慢。
+	這似乎可以從 \cref{fig:dqn_update} 看到，但似乎需要更多的 epsiodes/timesteps 才能更確定是否真的如此。
 		
 %% References
 %%

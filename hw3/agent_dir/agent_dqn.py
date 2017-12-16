@@ -101,7 +101,7 @@ class Agent_DQN(Agent):
         model.add(Conv2D(64, (4, 4), activation='relu', strides=(2, 2)))
         model.add(Conv2D(64, (3, 3), activation='relu', strides=(1, 1)))
         model.add(Flatten())
-        model.add(Dense(512, activation='lrelu'))
+        model.add(Dense(512, activation='relu'))
         model.add(Dense(self.num_actions, activation='softmax'))
 
         s = tf.placeholder(tf.float32, [None, STATE_LENGTH, FRAME_WIDTH, FRAME_HEIGHT])

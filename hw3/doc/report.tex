@@ -144,19 +144,25 @@
 \subsection{DQN}
 	參考了 \cite{tokb23dq42:online} 的 GitHub 專案與助教所提供的提示。
 	總共有三層 Conv2D，單元數分別為 32/64/64，kernel 大小依序為 8/4/3，間隔取樣距離分別為 4/2/1（均為方陣）。
-	Conv2D 的 activation 方式均為 relu，而緊接在後的兩層 FC 則分別有 512 個單元與 6 個（總操作數量），activation 方式分別為 leaky ReLU 與 softmax。
+	Conv2D 的 activation 方式均為 relu，而緊接在後的兩層 FC 則分別有 512 個單元與 6 個（總操作數量），activation 方式分別為 ReLU 與 softmax。
 	影像經過預處理為 8-bit 灰階並縮小至 $84 \times 84$ 的方格。
 	
 	\begin{figure}[H]
 		\centering
-		\includegraphics[width=0.7\textwidth]{images/pg_curve}
-		\caption{學習曲線} \label{fig:dqn_curve}
+		\includegraphics[width=0.48\textwidth]{images/dqn_curve}
+		\caption{學習曲線（未達 baseline）} \label{fig:dqn_curve}
 	\end{figure}
 	
 	繪圖的時候沒注意到只存了 episode 數而不是 time step，但已經來不及了。
 		
-\section{結果}
-	本次作業並沒有實作完畢 attention model，加上花了太久的時間在處理 dataset，沒有足夠的時間訓練出合適的結果。
+\section{參數調整}
+	選擇了 TARGET\_UPDATE\_INTERVAL（投影片當中的 target network update frequency）進行調整。
+	共計四種參數，1k/2k/5k/10k 剛好覆蓋了一個數量級之內的範圍，並且停在固定的 episodes 數。
+	\begin{figure}[H]
+		\centering
+		\includegraphics[width=0.48\textwidth]{images/dqn_update}
+		\caption{學習曲線（未達 baseline）} \label{fig:dqn_update}
+	\end{figure}
 		
 %% References
 %%

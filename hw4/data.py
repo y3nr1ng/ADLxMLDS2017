@@ -19,7 +19,7 @@ class DataSampler(object):
     def load_new_data(self, batch_size=None):
         if not batch_size:
             batch_size = len(self.db_files)
-        x = [self.load_single_image() for _ in range(len(self.db_files))]
+        x = [self.load_single_image() for _ in range(batch_size)]
         return np.stack(x, axis=0)
 
     def load_single_image(self):

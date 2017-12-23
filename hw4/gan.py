@@ -105,7 +105,8 @@ class WassersteinGAN(object):
                 bz = self.z_sampler(batch_size, self.z_dim)
                 bx = self.sess.run(self.x_, feed_dict={self.z: bz})
                 bx = self.x_sampler.data2img(bx)
-                skimage.io.imsave('logs/{}.jpg', bx)
+                for i in range(bx.shape[0]):
+                    skimage.io.imsave('logs/{}_{}.jpg', bx[i, ...])
                 fig = plt.figure('WGAN')
                 grid_show(fig, bx, self.x_sampler.shape)
                 fig.savefig('logs/{}.pdf'.format(t/100))

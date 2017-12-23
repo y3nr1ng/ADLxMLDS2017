@@ -7,7 +7,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser('HW4')
     parser.add_argument('--gpus', type=str, default='0')
     parser.add_argument('--epochs', type=int, default=300)
-    parser.add_argument('--batch_size', type=int, default='64')
+    parser.add_argument('--batch_size', type=int, default=64)
     return parser.parse_args()
 
 if __name__ == '__main__':

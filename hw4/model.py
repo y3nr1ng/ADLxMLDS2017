@@ -1,13 +1,16 @@
 import tensorflow as tf
 import tensorflow.contrib.layers as tcl
 
+def leaky_relu_batch_norm(x, alpha=0.2):
+    return tf.nn.leaky_relu(tcl.batch_norm(x), alpha)
+
 def relu_batch_norm(x):
     return tf.nn.relu(tcl.batch_norm(x))
 
 class Generator(object):
     def __init__(self):
         self.z_dim = 100
-        self.x_dim = 96 * 96 * 3
+        self.x_dim = 64 * 64 * 3
         self.name = 'g_net'
 
     def __call__(self, z):
@@ -43,7 +46,7 @@ class Generator(object):
 
 class Discriminator(object):
     def __init__(self):
-        self.x_dim = 96 * 96 * 3
+        self.x_dim = 64 * 64 * 3
         self.name = 'd_net'
 
     def __call__(self, x, reuse=True):
@@ -51,11 +54,11 @@ class Discriminator(object):
             if reuse:
                 vs.reuse_variables()
             bs = tf.shape(x)[0]
-            x = tf.reshape(x, [bs, 96, 96, 3])
+            x = tf.reshape(x, [bs, 64, 64, 3])
             conv1 = tcl.conv2d(
-                x, 96, [4, 4], [2, 2],
+                x, 64, [4, 4], [2, 2],
                 weights_initializer=tf.random_normal_initializer(stddev=0.02),
-                activation_fn=leaky_relu
+                activation_fn=tf.nn.leaky_relu
             )
             conv2 = tcl.conv2d(
                 conv1, 128, [4, 4], [2, 2],

@@ -1,4 +1,35 @@
 import tensorflow as tf
+import tensorflow.contrib as tc
+
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+def split(x):
+    assert type(x) == int
+    t = int(np.floor(np.sqrt(x)))
+    for a in range(t, 0, -1):
+        if x % a == 0:
+            return a, int(x / a)
+
+def grid_transform(x, size):
+    a, b = split(x.shape[0])
+    h, w, c = size[0], size[1], size[2]
+    x = np.reshape(x, [a, b, h, w, c])
+    x = np.transpose(x, [0, 2, 1, 3, 4])
+    x = np.reshape(x, [a * h, b * w, c])
+    if x.shape[2] == 1:
+        x = np.squeeze(x, axis=2)
+    return x
+
+def grid_show(fig, x, size):
+    ax = fig.add_subplot(111)
+    x = grid_transform(x, size)
+    if len(x.shape) > 2:
+        ax.imshow(x)
+    else:
+        ax.imshow(x, cmap='gray')
 
 class WassersteinGAN(object):
     def __init__(self, g_net, d_net, x_sampler, z_sampler):
@@ -40,12 +71,12 @@ class WassersteinGAN(object):
 
     def train(self, epochs=100, batch_size=64):
         self.sess.run(tf.global_variables_initializer())
-        for t in range(0, epochs):
+        for t in range(epochs):
             d_iters = 5
             if t % 500 == 0 or t < 25:
                  d_iters = 100
 
-            for _ in range(0, d_iters):
+            for _ in range(d_iters):
                 bx = self.x_sampler(batch_size)
                 bz = self.z_sampler(batch_size, self.z_dim)
                 self.sess.run(self.d_clip)
@@ -71,7 +102,7 @@ class WassersteinGAN(object):
             if t % 100 == 0:
                 bz = self.z_sampler(batch_size, self.z_dim)
                 bx = self.sess.run(self.x_, feed_dict={self.z: bz})
-                bx = xs.data2img(bx)
+                bx = self.x_sampler.data2img(bx)
                 fig = plt.figure('WGAN')
-                grid_show(fig, bx, xs.shape)
+                grid_show(fig, bx, self.x_sampler.shape)
                 fig.savefig('logs/{}.pdf'.format(t/100))

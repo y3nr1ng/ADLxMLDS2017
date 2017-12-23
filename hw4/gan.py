@@ -6,6 +6,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+import skimage.io
+
 def split(x):
     assert type(x) == int
     t = int(np.floor(np.sqrt(x)))
@@ -73,8 +75,8 @@ class WassersteinGAN(object):
         self.sess.run(tf.global_variables_initializer())
         for t in range(epochs):
             d_iters = 5
-            if t % 500 == 0 or t < 25:
-                 d_iters = 100
+            #if t % 500 == 0 or t < 25:
+            #     d_iters = 100
 
             for _ in range(d_iters):
                 bx = self.x_sampler(batch_size)
@@ -103,6 +105,7 @@ class WassersteinGAN(object):
                 bz = self.z_sampler(batch_size, self.z_dim)
                 bx = self.sess.run(self.x_, feed_dict={self.z: bz})
                 bx = self.x_sampler.data2img(bx)
+                skimage.io.imsave('logs/{}.jpg', bx)
                 fig = plt.figure('WGAN')
                 grid_show(fig, bx, self.x_sampler.shape)
                 fig.savefig('logs/{}.pdf'.format(t/100))

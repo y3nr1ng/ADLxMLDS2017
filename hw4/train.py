@@ -20,5 +20,5 @@ if __name__ == '__main__':
     g_net = model.Generator()
     d_net = model.Discriminator()
 
-    wgan = WassersteinGAN(g_net, d_net, xs, zs, )
+    wgan = WassersteinGAN(g_net, d_net, xs, zs)
     wgan.train(epochs=args.epochs, batch_size=args.batch_size)

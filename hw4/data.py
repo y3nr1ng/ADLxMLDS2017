@@ -1,17 +1,40 @@
+import os
 import numpy as np
-from tensorflow.examples.tutorials.mnist import input_data
-
-mnist = input_data.read_data_sets('/data/mnist')
 
 class DataSampler(object):
     def __init__(self):
-        self.shape = [28, 28, 1]
+        self.shape = [96, 96, 3]
+        self.name = 'comics'
+        self.db_path = 'data/faces'
+        self.db_files = os.listdir(self.db_path)
+        self.cur_batch_ptr = 0
+        self.cur_batch = self.load_new_data()
+        self.train_batch_ptr = 0
+        self.train_size = len(self.db_files) * 10000
+        self.test_size = self.train_size
+
+    def load_new_data(self):
+        filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                self.db_path, self.db_files[self.cur_batch_ptr])
+        self.cur_batch_ptr += 1
+        if self.cur_batch_ptr == len(self.db_files):
+            self.cur_batch_ptr = 0
+        return np.load(filename) * 2.0 - 1.0
 
     def __call__(self, batch_size):
-        return mnist.train.next_batch(batch_size)[0]
+        prev_batch_ptr = self.train_batch_ptr
+        self.train_batch_ptr += batch_size
+        if self.train_batch_ptr > self.cur_batch.shape[0]:
+            self.train_batch_ptr = batch_size
+            prev_batch_ptr = 0
+            self.cur_batch = self.load_new_data()
+        x = self.cur_batch[prev_batch_ptr:self.train_batch_ptr, :, :, :]
+        return np.reshape(x, [batch_size, -1])
 
     def data2img(self, data):
-        return np.reshape(data, [data.shape[0]] + self.shape)
+        rescaled = np.divide(data + 1.0, 2.0)
+        return np.reshape(np.clip(rescaled, 0.0, 1.0), [data.shape[0]] + self.shape)
+
 
 class NoiseSampler(object):
     def __call__(self, batch_size, z_dim):

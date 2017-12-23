@@ -1,8 +1,7 @@
 import tensorflow as tf
 
 class WassersteinGAN(object):
-    def __init__(self, g_net, d_net, x_sampler, x_sampler, data):
-        self.data = data
+    def __init__(self, g_net, d_net, x_sampler, z_sampler):
         self.g_net = g_net
         self.d_net = d_net
         self.x_sampler = x_sampler
@@ -73,6 +72,6 @@ class WassersteinGAN(object):
                 bz = self.z_sampler(batch_size, self.z_dim)
                 bx = self.sess.run(self.x_, feed_dict={self.z: bz})
                 bx = xs.data2img(bx)
-                fig = plt.figure(self.data + '.' + self.model)
+                fig = plt.figure('WGAN')
                 grid_show(fig, bx, xs.shape)
-                fig.savefig('logs/{}/{}.pdf'.format(self.data, t/100))
+                fig.savefig('logs/{}.pdf'.format(t/100))

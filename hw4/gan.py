@@ -2,8 +2,6 @@ import tensorflow as tf
 import tensorflow.contrib as tc
 
 import numpy as np
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 import skimage.io
@@ -69,14 +67,15 @@ class WassersteinGAN(object):
         self.d_clip = [
             v.assign(tf.clip_by_value(v, -0.01, 0.01)) for v in self.d_net.vars
         ]
+        self.saver = tf.train.Saver()
         self.sess = tf.Session()
 
     def train(self, epochs=100, batch_size=64):
         self.sess.run(tf.global_variables_initializer())
         for t in range(epochs):
             d_iters = 5
-            #if t % 500 == 0 or t < 25:
-            #     d_iters = 100
+            if t % 500 == 0 or t < 25:
+                d_iters = 100
 
             for _ in range(d_iters):
                 bx = self.x_sampler(batch_size)
@@ -104,9 +103,16 @@ class WassersteinGAN(object):
             if t % 100 == 0:
                 bz = self.z_sampler(batch_size, self.z_dim)
                 bx = self.sess.run(self.x_, feed_dict={self.z: bz})
+
+                # save images
                 bx = self.x_sampler.data2img(bx)
                 for i in range(bx.shape[0]):
                     skimage.io.imsave('logs/{}_{}.jpg'.format(t/100, i), bx[i, ...])
+
+                # save preview
                 fig = plt.figure('WGAN')
                 grid_show(fig, bx, self.x_sampler.shape)
                 fig.savefig('logs/{}.pdf'.format(t/100))
+
+                # save model variables
+                save_path = self.saver.save(self.sess, 'saved_model/model.ckpt')

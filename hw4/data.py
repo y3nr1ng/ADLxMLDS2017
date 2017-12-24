@@ -19,7 +19,7 @@ class DataSampler(object):
     def load_new_data(self, batch_size=None):
         if not batch_size:
             batch_size = len(self.db_files)
-        x = [self.load_single_image() for _ in range(len(self.db_files))]
+        x = [self.load_single_image() for _ in range(batch_size)]
         return np.stack(x, axis=0)
 
     def load_single_image(self):
@@ -29,7 +29,7 @@ class DataSampler(object):
         if self.cur_batch_ptr == len(self.db_files):
             self.cur_batch_ptr = 0
         x = skimage.io.imread(filename)
-        return skimage.transform.resize(x, self.shape[:2])
+        return skimage.transform.resize(x, self.shape[:2], mode='constant')
 
     def __call__(self, batch_size):
         prev_batch_ptr = self.train_batch_ptr

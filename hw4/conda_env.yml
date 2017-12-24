@@ -1,0 +1,8 @@
+name: adl-hw4 
+dependencies:
+  - python=3.5
+  - numpy
+  - pandas
+  - scikit-image
+  - pip:
+    - tensorflow-gpu

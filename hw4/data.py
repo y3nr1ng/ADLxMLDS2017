@@ -29,6 +29,8 @@ class DataSampler(object):
         if self.cur_batch_ptr == len(self.db_files):
             self.cur_batch_ptr = 0
         x = skimage.io.imread(filename)
+        # scaled up for clipping
+        x = x * 2.0 - 1.0
         return skimage.transform.resize(x, self.shape[:2], mode='constant')
 
     def __call__(self, batch_size):
@@ -42,6 +44,7 @@ class DataSampler(object):
         return np.reshape(x, [batch_size, -1])
 
     def data2img(self, data):
+        rescaled = np.divide(data + 1.0, 2.0)
         return np.reshape(np.clip(rescaled, 0.0, 1.0), [data.shape[0]] + self.shape)
 
 class NoiseSampler(object):

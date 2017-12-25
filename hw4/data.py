@@ -29,9 +29,8 @@ class DataSampler(object):
         if self.cur_batch_ptr == len(self.db_files):
             self.cur_batch_ptr = 0
         x = skimage.io.imread(filename)
-        # scaled up for clipping
-        x = x * 2.0 - 1.0
-        return skimage.transform.resize(x, self.shape[:2], mode='constant')
+        x = skimage.transform.resize(x, self.shape[:2], mode='constant')
+        return x * 2.0 - 1.0
 
     def __call__(self, batch_size):
         prev_batch_ptr = self.train_batch_ptr

@@ -42,7 +42,6 @@ class DataSampler(object):
         return np.reshape(x, [batch_size, -1])
 
     def data2img(self, data):
-        rescaled = np.divide(data + 1.0, 2.0)
         return np.reshape(np.clip(rescaled, 0.0, 1.0), [data.shape[0]] + self.shape)
 
 class NoiseSampler(object):

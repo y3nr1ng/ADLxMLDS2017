@@ -8,9 +8,9 @@ class DataSampler(object):
     def __init__(self):
         self.shape = [64, 64, 3]
         self.name = 'comics'
-        #self.db_path = 'data/faces_subset'
         self.db_path = 'data/faces'
-        self.db_files, self.labels = self.list_valid_files('data/tags.csv')
+        #self.db_files, self.labels = self.list_valid_files('data/tags.csv')
+        self.db_files, self.labels = self.list_valid_files('data/tags_subset.csv')
         self.cur_batch_ptr = 0
         self.cur_batch_data, markers = self.load_new_data()
         self.cur_batch_label = self.load_label_range(markers)
@@ -24,12 +24,14 @@ class DataSampler(object):
             lines = f.read().splitlines()
         valid_tags = {tag: index for index, tag in enumerate(lines)}
 
-        df = pd.read_csv(self.tag_path, index_col=0, names=['id', 'tags'])
-        db_files = df['id'] + '.jpg'
+        df = pd.read_csv(tag_path, index_col=0, names=['id', 'tags'])
+        db_files = ['{}.jpg'.format(i) for i in df.index.values.tolist()]
+        print(len(db_files))
+        print(len(df))
 
         # convert labels to one-hot vectors
         labels = np.zeros((len(df), len(valid_tags)), dtype=np.float32)
-        for index, row in df.iterrows():
+        for index, (_, row) in enumerate(df.iterrows()):
             tags = row['tags'].split('\t')
             for tag in tags:
                 labels[index, valid_tags[tag]] = 1.0

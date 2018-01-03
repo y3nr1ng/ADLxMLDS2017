@@ -79,10 +79,10 @@ class Discriminator(object):
                 activation_fn=leaky_relu_batch_norm
             )
 
-            y = tf.reshape(labels, [bs, self.label_dim])
+            y = tf.reshape(labels, [bs, 1, 1, self.label_dim])
             x_shapes = conv4.get_shape()
             y_shapes = y.get_shape()
-            conv4 = tf.concat([conv4, labels*tf.ones([x_shapes[0], x_shapes[1], x_shapes[2], y_shapes[1]])], 3)
+            conv4 = tf.concat([x, y*tf.ones([x_shapes[0], x_shapes[1], x_shapes[2], y_shapes[3]])], 3)
 
             conv4 = tcl.flatten(conv4)
             fc = tcl.fully_connected(conv4, 1, activation_fn=tf.identity)

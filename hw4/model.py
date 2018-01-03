@@ -80,9 +80,7 @@ class Discriminator(object):
             )
 
             y = tf.reshape(labels, [bs, 1, 1, self.label_dim])
-            x_shapes = conv4.get_shape()
-            y_shapes = y.get_shape()
-            conv4 = tf.concat([x, y*tf.ones([x_shapes[0], x_shapes[1], x_shapes[2], y_shapes[3]])], 3)
+            conv4 = tf.concat([conv4, y*tf.ones([bs, 4, 4, self.label_dim])], 3)
 
             conv4 = tcl.flatten(conv4)
             fc = tcl.fully_connected(conv4, 1, activation_fn=tf.identity)

@@ -78,6 +78,9 @@ class Discriminator(object):
                 activation_fn=leaky_relu_batch_norm
             )
             #TODO append broadcasted label dimension at the end of conv4 (last dimension)
+            x_shapes = conv4.get_shape()
+            y_shapes = labels.get_shape()
+            conv4 = tf.concat([conv4, labels*tf.ones([x_shapes[0], x_shapes[1], x_shapes[2], y_shapes[3]])], 3)
             conv4 = tcl.flatten(conv4)
             fc = tcl.fully_connected(conv4, 1, activation_fn=tf.identity)
             return fc

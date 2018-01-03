@@ -83,5 +83,5 @@ class DataSampler(object):
         return np.reshape(np.clip(rescaled, 0.0, 1.0), [data.shape[0]] + self.shape)
 
 class NoiseSampler(object):
-    def __call__(self, batch_size, z_dim):
-        return np.random.uniform(-1.0, 1.0, [batch_size, z_dim])
+    def __call__(self, batch_size, noise_dim):
+        return np.random.uniform(-1.0, 1.0, [batch_size, noise_dim])

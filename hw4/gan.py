@@ -56,13 +56,34 @@ class WassersteinGAN(object):
         self.labels = tf.placeholder(tf.float32, [None, self.label_dim], name='labels')
         self.noise = tf.placeholder(tf.float32, [None, self.noise_dim], name='noise')
 
-        self._images = self.g_net(self.noise)
+        self._images = self.g_net(self.noise, self.labels)
 
-        self.d = self.d_net(self.images, reuse=False)
+        # discriminate real images
+        self.d = self.d_net(self.images, self.labels, reuse=False)
+        # discriminate fake images
         self._d = self.d_net(self._images)
+        
+        d_loss = tf.reduce_mean(
+            tf.nn.sigmoid_cross_entropy_with_logits(
+                labels=tf.ones_like(tf.nn.sigmoid(self.d)), logits=self.d
+            )
+        )
+        _d_loss = tf.reduce_mean(
+            tf.nn.sigmoid_cross_entropy_with_logits(
+                labels=tf.zeros_like(tf.nn.sigmoid(self._d)), logits=self._d
+            )
+        )
 
-        self.g_loss = tf.reduce_mean(self._d)
-        self.d_loss = tf.reduce_mean(self.d) - tf.reduce_mean(self._d)
+        g_loss = tf.reduce_mean(
+            tf.nn.sigmoid_cross_entropy_with_logits(
+                labels=tf.ones_like(tf.nn.sigmoid(self._d)), logits=self._d
+            )
+        )
+
+        #self.g_loss = tf.reduce_mean(self._d)
+        #self.d_loss = tf.reduce_mean(self.d) - tf.reduce_mean(self._d)
+        self.g_loss = g_loss
+        self.d_loss = d_loss + _d_loss
 
         self.reg = tc.layers.apply_regularization(
             tc.layers.l1_regularizer(2.5e-5),
@@ -73,10 +94,10 @@ class WassersteinGAN(object):
         self.g_loss_reg = self.g_loss + self.reg
         self.d_loss_reg = self.d_loss + self.reg
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-            self.d_rmsprop = tf.train.RMSPropOptimizer(learning_rate=5e-5)\
-                .minimize(self.d_loss_reg, var_list=self.d_net.vars)
             self.g_rmsprop = tf.train.RMSPropOptimizer(learning_rate=5e-5)\
                 .minimize(self.g_loss_reg, var_list=self.g_net.vars)
+            self.d_rmsprop = tf.train.RMSPropOptimizer(learning_rate=5e-5)\
+                .minimize(self.d_loss_reg, var_list=self.d_net.vars)
 
         self.d_clip = [
             v.assign(tf.clip_by_value(v, -0.01, 0.01)) for v in self.d_net.vars
@@ -84,37 +105,54 @@ class WassersteinGAN(object):
         self.saver = tf.train.Saver()
         self.sess = tf.Session()
 
-    def train(self, epochs=100, batch_size=64, d_iters=5):
+    def train(self, epochs=100, batch_size=64, g_iters=2):
         self.sess.run(tf.global_variables_initializer())
         for t in range(epochs):
-            for _ in range(d_iters):
-                bx = self.data_sampler(batch_size)
+            bx, by = self.data_sampler(batch_size)
+
+            for _ in range(g_iters):
                 bz = self.noise_sampler(batch_size, self.noise_dim)
-                self.sess.run(self.d_clip)
                 self.sess.run(
-                    self.d_rmsprop, feed_dict={self.images: bx, self.noise: bz}
+                    self.g_rmsprop, feed_dict={
+                        self.labels: by,
+                        self.noise: bz
+                    }
                 )
 
-            bz = self.noise_sampler(batch_size, self.noise_dim)
+            self.sess.run(self.d_clip)
             self.sess.run(
-                self.g_rmsprop, feed_dict={self.noise: bz, self.images: bx}
+                self.d_rmsprop, feed_dict={
+                    self.images: bx,
+                    self.labels: by
+                }
             )
 
             if t % 100 == 0:
-                bx = self.data_sampler(batch_size)
+                bx, by = self.data_sampler(batch_size)
                 bz = self.noise_sampler(batch_size, self.noise_dim)
 
-                d_loss = self.sess.run(
-                    self.d_loss, feed_dict={self.images: bx, self.noise: bz}
-                )
                 g_loss = self.sess.run(
-                    self.g_loss, feed_dict={self.noise: bz, self.images: bx}
+                    self.g_loss, feed_dict={
+                        self.labels: by,
+                        self.noise: bz
+                    }
                 )
-                print('Iter {}, d_loss {:.4f}, g_loss {:.4f}'.format(t, d_loss, g_loss))
+                d_loss = self.sess.run(
+                    self.d_loss, feed_dict={
+                        self.images: bx,
+                        self.labels: by
+                    }
+                )
+                print('Iter {}, g_loss {:.4f}, d_loss {:.4f}'.format(t, g_loss, d_loss))
 
+                save_path = self.saver.save(self.sess, 'saved_model/model.ckpt')
+
+            """
             if t % 100 == 0:
                 bz = self.noise_sampler(batch_size, self.noise_dim)
-                bx = self.sess.run(self._images, feed_dict={self.noise: bz})
+                bx = self.sess.run(
+                    self._images, feed_dict={self.noise: bz, self.labels: }
+                )
 
                 # save images
                 bx = self.data_sampler.to_images(bx)
@@ -128,3 +166,4 @@ class WassersteinGAN(object):
 
                 # save model variables
                 save_path = self.saver.save(self.sess, 'saved_model/model.ckpt')
+            """

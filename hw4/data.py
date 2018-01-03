@@ -26,8 +26,6 @@ class DataSampler(object):
 
         df = pd.read_csv(tag_path, index_col=0, names=['id', 'tags'])
         db_files = ['{}.jpg'.format(i) for i in df.index.values.tolist()]
-        print(len(db_files))
-        print(len(df))
 
         # convert labels to one-hot vectors
         labels = np.zeros((len(df), len(valid_tags)), dtype=np.float32)

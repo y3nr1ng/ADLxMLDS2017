@@ -49,6 +49,7 @@ class Generator(object):
 class Discriminator(object):
     def __init__(self):
         self.image_dim = 64 * 64 * 3
+        self.label_dim = 23
         self.name = 'discriminator'
 
     def __call__(self, images, labels, reuse=True):
@@ -58,7 +59,7 @@ class Discriminator(object):
             bs = tf.shape(images)[0]
             x = tf.reshape(images, [bs, 64, 64, 3])
             conv1 = tcl.conv2d(
-                images, 64, [4, 4], [2, 2],
+                x, 64, [4, 4], [2, 2],
                 weights_initializer=tf.random_normal_initializer(stddev=0.02),
                 activation_fn=tf.nn.leaky_relu
             )
@@ -77,10 +78,12 @@ class Discriminator(object):
                 weights_initializer=tf.random_normal_initializer(stddev=0.02),
                 activation_fn=leaky_relu_batch_norm
             )
-            #TODO append broadcasted label dimension at the end of conv4 (last dimension)
+
+            y = tf.reshape(labels, [bs, self.label_dim])
             x_shapes = conv4.get_shape()
-            y_shapes = labels.get_shape()
-            conv4 = tf.concat([conv4, labels*tf.ones([x_shapes[0], x_shapes[1], x_shapes[2], y_shapes[3]])], 3)
+            y_shapes = y.get_shape()
+            conv4 = tf.concat([conv4, labels*tf.ones([x_shapes[0], x_shapes[1], x_shapes[2], y_shapes[1]])], 3)
+
             conv4 = tcl.flatten(conv4)
             fc = tcl.fully_connected(conv4, 1, activation_fn=tf.identity)
             return fc

@@ -61,8 +61,8 @@ class WassersteinGAN(object):
         # discriminate real images
         self.d = self.d_net(self.images, self.labels, reuse=False)
         # discriminate fake images
-        self._d = self.d_net(self._images)
-        
+        self._d = self.d_net(self._images, self.labels)
+
         d_loss = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(
                 labels=tf.ones_like(tf.nn.sigmoid(self.d)), logits=self.d

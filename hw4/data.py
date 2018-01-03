@@ -78,7 +78,7 @@ class DataSampler(object):
         y = self.cur_batch_label[prev_batch_ptr:self.train_batch_ptr, :]
         return np.reshape(x, [batch_size, -1]), np.reshape(y, [batch_size, -1])
 
-    def data2img(self, data):
+    def to_image(self, data):
         rescaled = np.divide(data + 1.0, 2.0)
         return np.reshape(np.clip(rescaled, 0.0, 1.0), [data.shape[0]] + self.shape)
 

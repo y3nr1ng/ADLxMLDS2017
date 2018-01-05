@@ -109,10 +109,20 @@ class WassersteinGAN(object):
         self.saver = tf.train.Saver()
         self.sess = tf.Session()
 
-    def train(self, epochs=100, batch_size=64, g_iters=2):
+    def train(self, epochs=100, batch_size=64, g_iters=5):
         self.sess.run(tf.global_variables_initializer())
         for t in range(epochs):
             bx, by = self.data_sampler(batch_size)
+
+            bz = self.noise_sampler(batch_size, self.noise_dim)
+            self.sess.run(self.d_clip)
+            self.sess.run(
+                self.d_rmsprop, feed_dict={
+                    self.images: bx,
+                    self.labels: by,
+                    self.noise: bz
+                }
+            )
 
             for _ in range(g_iters):
                 bz = self.noise_sampler(batch_size, self.noise_dim)
@@ -123,16 +133,6 @@ class WassersteinGAN(object):
                         self.noise: bz
                     }
                 )
-            self.sess.run(self.d_clip)
-
-            bz = self.noise_sampler(batch_size, self.noise_dim)
-            self.sess.run(
-                self.d_rmsprop, feed_dict={
-                    self.images: bx,
-                    self.labels: by,
-                    self.noise: bz
-                }
-            )
 
             if t % 100 == 0:
                 bx, by = self.data_sampler(batch_size)

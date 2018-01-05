@@ -36,7 +36,7 @@ def grid_show(fig, x, size):
         ax.imshow(x, cmap='gray')
 
 class WassersteinGAN(object):
-    def __init__(self, g_net, d_net, data_sampler, noise_sampler):
+    def __init__(self, g_net, d_net, data_sampler, noise_sampler, scale=10.0):
         '''
         Parameters
         ----------
@@ -89,7 +89,7 @@ class WassersteinGAN(object):
 
         epsilon = tf.random_uniform([], 0.0, 1.0)
         image_hat = epsilon*self.images + (1-epsilon)*self._images
-        d_hat = self.d_net(image_hat)
+        d_hat = self.d_net(image_hat, self.labels)
 
         ddx = tf.gradients(d_hat, image_hat)[0]
         ddx = tf.sqrt(tf.reduce_sum(tf.square(ddx), axis=1))

@@ -9,6 +9,7 @@ def relu_batch_norm(x):
 
 class Generator(object):
     def __init__(self):
+        self.image_dim = 64 * 64 * 3
         self.noise_dim = 100
         self.label_dim = 23
         self.name = 'generator'
@@ -40,7 +41,7 @@ class Generator(object):
                 weights_initializer=tf.random_normal_initializer(stddev=0.02),
                 activation_fn=tf.tanh
             )
-            return conv5
+            return tf.reshape(conv5, [bs, self.image_dim])
 
     @property
     def vars(self):

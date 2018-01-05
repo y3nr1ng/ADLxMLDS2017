@@ -1,4 +1,7 @@
 import os
+import logging
+logger = logging.getLogger(__name__)
+
 import skimage.io
 import skimage.transform
 import numpy as np
@@ -33,12 +36,14 @@ class DataSampler(object):
             tags = row['tags'].split('\t')
             for tag in tags:
                 labels[index, valid_tags[tag]] = 1.0
-
         return db_files, labels
 
     def load_new_data(self, batch_size=None):
         if not batch_size:
             batch_size = len(self.db_files)
+
+        if self.cur_batch_ptr >= len(self.db_files):
+            self.cur_batch_ptr = 0
 
         i_start = self.cur_batch_ptr
         x = [self.load_single_image() for _ in range(batch_size)]
@@ -60,8 +65,6 @@ class DataSampler(object):
         filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                 self.db_path, self.db_files[self.cur_batch_ptr])
         self.cur_batch_ptr += 1
-        if self.cur_batch_ptr == len(self.db_files):
-            self.cur_batch_ptr = 0
         x = skimage.io.imread(filename)
         x = skimage.transform.resize(x, self.shape[:2], mode='constant')
         return x * 2.0 - 1.0
@@ -69,7 +72,7 @@ class DataSampler(object):
     def __call__(self, batch_size):
         prev_batch_ptr = self.train_batch_ptr
         self.train_batch_ptr += batch_size
-        if self.train_batch_ptr > self.cur_batch.shape[0]:
+        if self.train_batch_ptr > self.cur_batch_ptr:
             self.train_batch_ptr = batch_size
             prev_batch_ptr = 0
             self.cur_batch_data, markers = self.load_new_data()
@@ -78,7 +81,7 @@ class DataSampler(object):
         y = self.cur_batch_label[prev_batch_ptr:self.train_batch_ptr, :]
         return np.reshape(x, [batch_size, -1]), np.reshape(y, [batch_size, -1])
 
-    def to_image(self, data):
+    def to_images(self, data):
         rescaled = np.divide(data + 1.0, 2.0)
         return np.reshape(np.clip(rescaled, 0.0, 1.0), [data.shape[0]] + self.shape)
 

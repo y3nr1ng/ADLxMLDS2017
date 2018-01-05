@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import tensorflow as tf
 import tensorflow.contrib as tc
 
@@ -106,6 +109,9 @@ class WassersteinGAN(object):
         self.sess = tf.Session()
 
     def train(self, epochs=100, batch_size=64, g_iters=2):
+        tf.summary.FileWriterCache.clear()
+        writer = tf.summary.FileWriter('logs', self.sess.graph)
+        
         self.sess.run(tf.global_variables_initializer())
         for t in range(epochs):
             bx, by = self.data_sampler(batch_size)
@@ -114,25 +120,29 @@ class WassersteinGAN(object):
                 bz = self.noise_sampler(batch_size, self.noise_dim)
                 self.sess.run(
                     self.g_rmsprop, feed_dict={
+                        self.images: bx,
                         self.labels: by,
                         self.noise: bz
                     }
                 )
-
             self.sess.run(self.d_clip)
+
+            bz = self.noise_sampler(batch_size, self.noise_dim)
             self.sess.run(
                 self.d_rmsprop, feed_dict={
                     self.images: bx,
-                    self.labels: by
+                    self.labels: by,
+                    self.noise: bz
                 }
             )
 
-            if t % 100 == 0:
+            if t % 2 == 0:
                 bx, by = self.data_sampler(batch_size)
                 bz = self.noise_sampler(batch_size, self.noise_dim)
 
                 g_loss = self.sess.run(
                     self.g_loss, feed_dict={
+                        self.images: bx,
                         self.labels: by,
                         self.noise: bz
                     }
@@ -140,12 +150,28 @@ class WassersteinGAN(object):
                 d_loss = self.sess.run(
                     self.d_loss, feed_dict={
                         self.images: bx,
-                        self.labels: by
+                        self.labels: by,
+                        self.noise: bz
                     }
                 )
-                print('Iter {}, g_loss {:.4f}, d_loss {:.4f}'.format(t, g_loss, d_loss))
+                logger.info('Iter {}, g_loss {:.4f}, d_loss {:.4f}'\
+                    .format(t, g_loss, d_loss))
 
                 save_path = self.saver.save(self.sess, 'saved_model/model.ckpt')
+                logger.info('checkpoint saved to \'{}\' at t={}'\
+                    .format(save_path, t))
+
+                bx = self.sess.run(
+                    self._images,
+                    feed_dict={
+                        self.labels: by,
+                        self.noise: bz
+                    }
+                )
+                # save images
+                bx = self.data_sampler.to_images(bx)
+                for i in range(bx.shape[0]):
+                    tf.summary.image('fake_images', bx, bx.shape[0])
 
             """
             if t % 100 == 0:

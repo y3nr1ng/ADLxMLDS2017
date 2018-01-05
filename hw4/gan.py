@@ -111,7 +111,7 @@ class WassersteinGAN(object):
             bx, by = self.data_sampler(batch_size)
 
             for _ in range(d_iters):
-            bz = self.noise_sampler(batch_size, self.noise_dim)
+                bz = self.noise_sampler(batch_size, self.noise_dim)
                 self.sess.run(
                     self.d_adam, feed_dict={
                         self.images: bx,

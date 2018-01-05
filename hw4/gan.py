@@ -134,7 +134,7 @@ class WassersteinGAN(object):
                 }
             )
 
-            if t % 2 == 0:
+            if t % 100 == 0:
                 bx, by = self.data_sampler(batch_size)
                 bz = self.noise_sampler(batch_size, self.noise_dim)
 

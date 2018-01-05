@@ -1,5 +1,14 @@
 import argparse
 import os
+import logging
+handler = logging.StreamHandler()
+formatter = logging.Formatter(
+    '%(levelname).1s %(asctime)s [%(name)s] %(message)s', '%H:%M:%S'
+)
+handler.setFormatter(formatter)
+logging.basicConfig(level=logging.DEBUG, handlers=[handler])
+logger = logging.getLogger(__name__)
+
 import data, model
 from gan import WassersteinGAN
 

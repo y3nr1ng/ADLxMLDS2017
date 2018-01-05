@@ -84,55 +84,50 @@ class WassersteinGAN(object):
             )
         )
 
-        #self.g_loss = tf.reduce_mean(self._d)
-        #self.d_loss = tf.reduce_mean(self.d) - tf.reduce_mean(self._d)
         self.g_loss = g_loss
         self.d_loss = d_loss + _d_loss
 
-        self.reg = tc.layers.apply_regularization(
-            tc.layers.l1_regularizer(2.5e-5),
-            weights_list=[
-                var for var in tf.global_variables() if 'weights' in var.name
-            ]
-        )
-        self.g_loss_reg = self.g_loss + self.reg
-        self.d_loss_reg = self.d_loss + self.reg
-        with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-            self.g_rmsprop = tf.train.RMSPropOptimizer(learning_rate=5e-5)\
-                .minimize(self.g_loss_reg, var_list=self.g_net.vars)
-            self.d_rmsprop = tf.train.RMSPropOptimizer(learning_rate=5e-5)\
-                .minimize(self.d_loss_reg, var_list=self.d_net.vars)
+        epsilon = tf.random_uniform([], 0.0, 1.0)
+        image_hat = epsilon*self.images + (1-epsilon)*self._images
+        d_hat = self.d_net(image_hat)
 
-        self.d_clip = [
-            v.assign(tf.clip_by_value(v, -0.01, 0.01)) for v in self.d_net.vars
-        ]
+        ddx = tf.gradients(d_hat, image_hat)[0]
+        ddx = tf.sqrt(tf.reduce_sum(tf.square(ddx), axis=1))
+        ddx = tf.reduce_mean(tf.square(ddx-1.0) * scale)
+        self.d_loss += ddx
+
+        with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+            self.g_adam = tf.train.AdamOptimizer(learning_rate=1e-4, beta1=0.5, beta2=0.9)\
+                .minimize(self.g_loss, var_list=self.g_net.vars)
+            self.d_adam = tf.train.AdamOptimizer(learning_rate=1e-4, beta1=0.5, beta2=0.9)\
+                .minimize(self.d_loss, var_list=self.d_net.vars)
+
         self.saver = tf.train.Saver()
         self.sess = tf.Session()
 
-    def train(self, epochs=100, batch_size=64, g_iters=5):
+    def train(self, epochs=100, batch_size=64, d_iters=5):
         self.sess.run(tf.global_variables_initializer())
         for t in range(epochs):
             bx, by = self.data_sampler(batch_size)
 
+            for _ in range(d_iters):
             bz = self.noise_sampler(batch_size, self.noise_dim)
-            self.sess.run(self.d_clip)
-            self.sess.run(
-                self.d_rmsprop, feed_dict={
-                    self.images: bx,
-                    self.labels: by,
-                    self.noise: bz
-                }
-            )
-
-            for _ in range(g_iters):
-                bz = self.noise_sampler(batch_size, self.noise_dim)
                 self.sess.run(
-                    self.g_rmsprop, feed_dict={
+                    self.d_adam, feed_dict={
                         self.images: bx,
                         self.labels: by,
                         self.noise: bz
                     }
                 )
+
+            bz = self.noise_sampler(batch_size, self.noise_dim)
+            self.sess.run(
+                self.g_adam, feed_dict={
+                    self.images: bx,
+                    self.labels: by,
+                    self.noise: bz
+                }
+            )
 
             if t % 100 == 0:
                 bx, by = self.data_sampler(batch_size)

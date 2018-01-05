@@ -1,3 +1,4 @@
+import os
 import logging
 logger = logging.getLogger(__name__)
 
@@ -109,9 +110,6 @@ class WassersteinGAN(object):
         self.sess = tf.Session()
 
     def train(self, epochs=100, batch_size=64, g_iters=2):
-        tf.summary.FileWriterCache.clear()
-        writer = tf.summary.FileWriter('logs', self.sess.graph)
-        
         self.sess.run(tf.global_variables_initializer())
         for t in range(epochs):
             bx, by = self.data_sampler(batch_size)
@@ -157,6 +155,7 @@ class WassersteinGAN(object):
                 logger.info('Iter {}, g_loss {:.4f}, d_loss {:.4f}'\
                     .format(t, g_loss, d_loss))
 
+                # save model
                 save_path = self.saver.save(self.sess, 'saved_model/model.ckpt')
                 logger.info('checkpoint saved to \'{}\' at t={}'\
                     .format(save_path, t))
@@ -169,9 +168,14 @@ class WassersteinGAN(object):
                     }
                 )
                 # save images
+                save_path = os.path.join('logs', '{}_g{:.4f}_d{:.4f}'\
+                    .format(t, g_loss, d_loss))
+                os.makedirs(save_path)
                 bx = self.data_sampler.to_images(bx)
                 for i in range(bx.shape[0]):
-                    tf.summary.image('fake_images', bx, bx.shape[0])
+                    skimage.io.imsave(os.path.join(
+                        save_path, '{}.jpg'.format(i)), bx[i, ...]
+                    )
 
             """
             if t % 100 == 0:

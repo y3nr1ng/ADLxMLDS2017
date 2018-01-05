@@ -11,9 +11,8 @@ class DataSampler(object):
     def __init__(self):
         self.shape = [64, 64, 3]
         self.name = 'comics'
-        self.db_path = 'data/faces'
-        #self.db_files, self.labels = self.list_valid_files('data/tags.csv')
-        self.db_files, self.labels = self.list_valid_files('data/tags_subset.csv')
+        self.db_path = os.path.join('data', 'faces')
+        self.db_files, self.labels = self.list_valid_files(os.path.join('data', 'tags.csv'))
         self.cur_batch_ptr = 0
         self.cur_batch_data, markers = self.load_new_data()
         self.cur_batch_label = self.load_label_range(markers)

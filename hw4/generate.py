@@ -17,7 +17,7 @@ def parse_arguments():
     parser.add_argument('label', type=str, help='label source')
     parser.add_argument('--gpus', type=str, default='0')
     parser.add_argument(
-        '-n', '--images',
+        '-n', '--n_images',
         type=int, default=5,
         help='number of images per label'
     )

@@ -192,3 +192,6 @@ class WassersteinGAN(object):
                 # save model variables
                 save_path = self.saver.save(self.sess, 'saved_model/model.ckpt')
             """
+
+    def generate(self, label, n_images=5):
+        pass

@@ -113,20 +113,14 @@ class WassersteinGAN(object):
             for _ in range(d_iters):
                 bz = self.noise_sampler(batch_size, self.noise_dim)
                 self.sess.run(
-                    self.d_adam, feed_dict={
-                        self.images: bx,
-                        self.labels: by,
-                        self.noise: bz
-                    }
+                    self.d_adam,
+                    feed_dict={self.images: bx, self.labels: by, self.noise: bz}
                 )
 
             bz = self.noise_sampler(batch_size, self.noise_dim)
             self.sess.run(
-                self.g_adam, feed_dict={
-                    self.images: bx,
-                    self.labels: by,
-                    self.noise: bz
-                }
+                self.g_adam,
+                feed_dict={self.images: bx, self.labels: by, self.noise: bz}
             )
 
             if t % 100 == 0:
@@ -134,33 +128,26 @@ class WassersteinGAN(object):
                 bz = self.noise_sampler(batch_size, self.noise_dim)
 
                 g_loss = self.sess.run(
-                    self.g_loss, feed_dict={
-                        self.images: bx,
-                        self.labels: by,
-                        self.noise: bz
-                    }
+                    self.g_loss,
+                    feed_dict={self.images: bx, self.labels: by, self.noise: bz}
                 )
                 d_loss = self.sess.run(
-                    self.d_loss, feed_dict={
-                        self.images: bx,
-                        self.labels: by,
-                        self.noise: bz
-                    }
+                    self.d_loss,
+                    feed_dict={self.images: bx, self.labels: by, self.noise: bz}
                 )
                 logger.info('Iter {}, g_loss {:.4f}, d_loss {:.4f}'\
                     .format(t, g_loss, d_loss))
 
                 # save model
-                save_path = self.saver.save(self.sess, 'saved_model/model.ckpt')
+                save_path = self.saver.save(
+                    self.sess, os.path.join('saved_model', 'model.ckpt')
+                )
                 logger.info('checkpoint saved to \'{}\' at t={}'\
                     .format(save_path, t))
 
                 bx = self.sess.run(
                     self._images,
-                    feed_dict={
-                        self.labels: by,
-                        self.noise: bz
-                    }
+                    feed_dict={self.labels: by, self.noise: bz}
                 )
                 # save images
                 save_path = os.path.join('logs', '{}_g{:.4f}_d{:.4f}'\
@@ -168,8 +155,8 @@ class WassersteinGAN(object):
                 os.makedirs(save_path)
                 bx = self.data_sampler.to_images(bx)
                 for i in range(bx.shape[0]):
-                    skimage.io.imsave(os.path.join(
-                        save_path, '{}.jpg'.format(i)), bx[i, ...]
+                    skimage.io.imsave(
+                        os.path.join(save_path, '{}.jpg'.format(i)), bx[i, ...]
                     )
 
             """
@@ -193,5 +180,13 @@ class WassersteinGAN(object):
                 save_path = self.saver.save(self.sess, 'saved_model/model.ckpt')
             """
 
+    def restore(self):
+        self.saver.restore(self.sess, os.path.join('saved_model', 'model.ckpt'))
+        
     def generate(self, label, n_images=5):
-        pass
+        bz = self.noise_sampler(n_images, self.noise_dim)
+        bx = self.sess.run(
+            self._images,
+            feed_dict={self.labels: label, self.noise: bz}
+        )
+        return self.data_sampler.to_images(bx)

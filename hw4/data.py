@@ -7,10 +7,11 @@ import skimage.transform
 import numpy as np
 import pandas as pd
 
+import utils
+
 class DataSampler(object):
     def __init__(self):
         self.shape = [64, 64, 3]
-        self.name = 'comics'
         self.db_path = os.path.join('data', 'faces')
         self.db_files, self.labels = self.list_valid_files(os.path.join('data', 'tags.csv'))
         self.cur_batch_ptr = 0
@@ -18,22 +19,10 @@ class DataSampler(object):
         self.cur_batch_label = self.load_label_range(markers)
         self.train_batch_ptr = 0
 
-    def list_valid_files(self, tag_path, rule_path='valid_tags.txt'):
-        # load rules
-        with open(rule_path, 'r') as f:
-            lines = f.read().splitlines()
-        valid_tags = {tag: index for index, tag in enumerate(lines)}
-
+    def list_valid_files(self, tag_path):
         df = pd.read_csv(tag_path, index_col=0, names=['id', 'tags'])
         db_files = ['{}.jpg'.format(i) for i in df.index.values.tolist()]
-
-        # convert labels to one-hot vectors
-        labels = np.zeros((len(df), len(valid_tags)), dtype=np.float32)
-        for index, (_, row) in enumerate(df.iterrows()):
-            tags = row['tags'].split('\t')
-            for tag in tags:
-                labels[index, valid_tags[tag]] = 1.0
-        return db_files, labels
+        return db_files, utils.text_to_onehot(df)
 
     def load_new_data(self, batch_size=None):
         if not batch_size:

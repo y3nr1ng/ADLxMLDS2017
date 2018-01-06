@@ -24,7 +24,8 @@ def _test_text_splitter(string, span=2):
 
 def load_labels(label_path):
     df = pd.read_csv(label_path, index_col=0, names=['id', 'tags'])
-    return utils.text_to_onehot(df, splitter=_test_text_splitter)
+    return df.index.values.tolist(), \
+           utils.text_to_onehot(df, splitter=_test_text_splitter)
 
 def parse_arguments():
     parser = argparse.ArgumentParser('HW4')
@@ -49,14 +50,14 @@ if __name__ == '__main__':
     wgan = WassersteinGAN(g_net, d_net, data_sampler, noise_sampler)
     wgan.restore()
 
-    labels = load_labels(args.label_path)
+    ids, labels = load_labels(args.label_path)
     for i in range(labels.shape[0]):
-        prefix = 'sample_{}'.format(i)
+        prefix = 'sample_{}'.format(ids[i])
         logger.info('generate images for \'{}\''.format(prefix))
         bx = wgan.generate(labels[i, ...])
         images = data_sampler.to_images(bx)
         for j in range(images.shape[0]):
             skimage.io.imsave(
-                os.path.join('samples', '{}_{}.jpg'.format(prefix, j)),
+                os.path.join('samples', '{}_{}.jpg'.format(prefix, j+1)),
                 images[j, ...]
             )

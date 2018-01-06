@@ -44,10 +44,17 @@ if __name__ == '__main__':
     g_net = model.Generator()
     d_net = model.Discriminator()
 
-    #wgan = WassersteinGAN(g_net, d_net, data_sampler, noise_sampler)
-    #wgan.restore()
+    wgan = WassersteinGAN(g_net, d_net, data_sampler, noise_sampler)
+    wgan.restore()
 
     labels = load_labels(args.label_path)
     for i in range(labels.shape[0]):
-        logger.info('generate images for \'{}\''.format(labels[i, ...]))
-        #wgan.generate()
+        prefix = 'sample_{}'.format(i)
+        logger.info('generate images for \'{}\''.format(prefix))
+        bx = wgan.generate(labels[i, ...])
+        images = data_sampler.to_images(bx)
+        for j in range(images.shape[0]):
+            skimage.io.imsave(
+                os.path.join('samples', '{}_{}.jpg'.format(prefix, j)),
+                images[j, ...]
+            )

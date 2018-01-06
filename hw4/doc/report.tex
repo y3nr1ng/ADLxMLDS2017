@@ -102,7 +102,25 @@
 % \linenumbers
 
 \section{模型敘述}
-
+	以下為本次作業採用的模型預覽
+	\begin{figure}[H]
+		\centering
+		\includegraphics[width=0.95\textwidth]{images/model}
+		\label{fig:model}
+	\end{figure}
+	其本質上為 conditional WGAN-GP（使用了 gradient penalty 的 WGAN）。
+	文字的編碼直接採用助教會評量的 23 種 tags 構成的 one-hot vector。
+	吐出的影像為 64x64 的結果。
+	
+	根據報告規範，要寫出 loss functions
+	\begin{equation*}
+		L^{WGAN-GP}_{D} = E \lbrack D(x) \rbrack - E \lbrack D(G(z)) \rbrack - \lambda E \lbrack ( \Vert \nabla D(\epsilon x + (1-\epsilon) G(z) )\Vert -1)^2 \rbrack
+	\end{equation*}
+	其中 $\lambda$ 在程式裡頭為 scale 此一變數。
+	\begin{equation*}
+		L^{WGAN-GP}_{G} = E \lbrack D(G(z)) \rbrack
+	\end{equation*}
+	
 \section{效能改善}
 	最開始的時候參考了 \cite{jiamings91:online} 與 \cite{zhangqia0:online} 實作了 Conditional WGAN。
 	但在調整 generator 與 discriminator 的更新比例（以下簡稱 D/G 比）時，出現了 mode collapse 且收斂時間很久，所以轉而更新模型為 Conditional WGAN-GP（WGAN 換為投影片當中的 Improved WGAN）。

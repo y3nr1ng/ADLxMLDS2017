@@ -54,7 +54,7 @@ if __name__ == '__main__':
     for i in range(labels.shape[0]):
         prefix = 'sample_{}'.format(ids[i])
         logger.info('generate images for \'{}\''.format(prefix))
-        bx = wgan.generate(labels[i, ...])
+        bx = wgan.generate(labels[i, ...], n_images=args.n)
         images = data_sampler.to_images(bx)
         for j in range(images.shape[0]):
             skimage.io.imsave(

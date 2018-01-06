@@ -160,24 +160,10 @@ class WassersteinGAN(object):
                     )
 
             """
-            if t % 100 == 0:
-                bz = self.noise_sampler(batch_size, self.noise_dim)
-                bx = self.sess.run(
-                    self._images, feed_dict={self.noise: bz, self.labels: }
-                )
-
-                # save images
-                bx = self.data_sampler.to_images(bx)
-                for i in range(bx.shape[0]):
-                    skimage.io.imsave('logs/{}_{}.jpg'.format(t/100, i), bx[i, ...])
-
-                # save preview
-                fig = plt.figure('WGAN')
-                grid_show(fig, bx, self.data_sampler.shape)
-                fig.savefig('logs/{}.pdf'.format(t/100))
-
-                # save model variables
-                save_path = self.saver.save(self.sess, 'saved_model/model.ckpt')
+            # save preview
+            fig = plt.figure('WGAN')
+            grid_show(fig, bx, self.data_sampler.shape)
+            fig.savefig('logs/{}.pdf'.format(t/100))
             """
 
     def restore(self):

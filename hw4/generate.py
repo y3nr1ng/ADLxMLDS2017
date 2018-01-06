@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 import pandas as pd
 import numpy as np
+import skimage
 
 import data, model
 from gan import WassersteinGAN

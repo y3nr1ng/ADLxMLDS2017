@@ -182,11 +182,12 @@ class WassersteinGAN(object):
 
     def restore(self):
         self.saver.restore(self.sess, os.path.join('saved_model', 'model.ckpt'))
-        
+
     def generate(self, label, n_images=5):
         bz = self.noise_sampler(n_images, self.noise_dim)
+        by = np.repeat(np.expand_dims(label, axis=0), n_images, axis=0)
         bx = self.sess.run(
             self._images,
-            feed_dict={self.labels: label, self.noise: bz}
+            feed_dict={self.labels: by, self.noise: bz}
         )
         return self.data_sampler.to_images(bx)

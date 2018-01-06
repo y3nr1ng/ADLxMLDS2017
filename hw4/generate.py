@@ -10,6 +10,7 @@ logging.basicConfig(level=logging.DEBUG, handlers=[handler])
 logger = logging.getLogger(__name__)
 
 import pandas as pd
+import numpy as np
 
 import data, model
 from gan import WassersteinGAN
@@ -51,7 +52,7 @@ if __name__ == '__main__':
     for i in range(labels.shape[0]):
         prefix = 'sample_{}'.format(i)
         logger.info('generate images for \'{}\''.format(prefix))
-        bx = wgan.generate(labels[i, ...])
+        bx = wgan.generate(labels)
         images = data_sampler.to_images(bx)
         for j in range(images.shape[0]):
             skimage.io.imsave(

@@ -9,14 +9,16 @@ def relu_batch_norm(x):
 
 class Generator(object):
     def __init__(self):
-        self.z_dim = 100
-        self.x_dim = 64 * 64 * 3
-        self.name = 'g_net'
+        self.image_dim = 64 * 64 * 3
+        self.noise_dim = 100
+        self.label_dim = 23
+        self.name = 'generator'
 
-    def __call__(self, z):
+    def __call__(self, noise, labels):
         with tf.variable_scope(self.name) as vs:
-            bs = tf.shape(z)[0]
-            fc = tcl.fully_connected(z, 4 * 4 * 1024, activation_fn=tf.identity)
+            bs = tf.shape(noise)[0]
+            noise = tf.concat([noise, labels], 1)
+            fc = tcl.fully_connected(noise, 4 * 4 * 1024, activation_fn=tf.identity)
             conv1 = tf.reshape(fc, tf.stack([bs, 4, 4, 1024]))
             conv1 = relu_batch_norm(conv1)
             conv2 = tcl.conv2d_transpose(
@@ -37,8 +39,9 @@ class Generator(object):
             conv5 = tcl.conv2d_transpose(
                 conv4, 3, [4, 4], [2, 2],
                 weights_initializer=tf.random_normal_initializer(stddev=0.02),
-                activation_fn=tf.tanh)
-            return conv5
+                activation_fn=tf.tanh
+            )
+            return tf.reshape(conv5, [bs, self.image_dim])
 
     @property
     def vars(self):
@@ -46,15 +49,16 @@ class Generator(object):
 
 class Discriminator(object):
     def __init__(self):
-        self.x_dim = 64 * 64 * 3
-        self.name = 'd_net'
+        self.image_dim = 64 * 64 * 3
+        self.label_dim = 23
+        self.name = 'discriminator'
 
-    def __call__(self, x, reuse=True):
+    def __call__(self, images, labels, reuse=True):
         with tf.variable_scope(self.name) as vs:
             if reuse:
                 vs.reuse_variables()
-            bs = tf.shape(x)[0]
-            x = tf.reshape(x, [bs, 64, 64, 3])
+            bs = tf.shape(images)[0]
+            x = tf.reshape(images, [bs, 64, 64, 3])
             conv1 = tcl.conv2d(
                 x, 64, [4, 4], [2, 2],
                 weights_initializer=tf.random_normal_initializer(stddev=0.02),
@@ -75,6 +79,10 @@ class Discriminator(object):
                 weights_initializer=tf.random_normal_initializer(stddev=0.02),
                 activation_fn=leaky_relu_batch_norm
             )
+
+            y = tf.reshape(labels, [bs, 1, 1, self.label_dim])
+            conv4 = tf.concat([conv4, y*tf.ones([bs, 4, 4, self.label_dim])], 3)
+
             conv4 = tcl.flatten(conv4)
             fc = tcl.fully_connected(conv4, 1, activation_fn=tf.identity)
             return fc

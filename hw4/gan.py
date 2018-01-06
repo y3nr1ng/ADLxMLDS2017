@@ -1,112 +1,151 @@
+import os
+import logging
+logger = logging.getLogger(__name__)
+
 import tensorflow as tf
 import tensorflow.contrib as tc
-
 import numpy as np
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-
 import skimage.io
 
-def split(x):
-    assert type(x) == int
-    t = int(np.floor(np.sqrt(x)))
-    for a in range(t, 0, -1):
-        if x % a == 0:
-            return a, int(x / a)
-
-def grid_transform(x, size):
-    a, b = split(x.shape[0])
-    h, w, c = size[0], size[1], size[2]
-    x = np.reshape(x, [a, b, h, w, c])
-    x = np.transpose(x, [0, 2, 1, 3, 4])
-    x = np.reshape(x, [a * h, b * w, c])
-    if x.shape[2] == 1:
-        x = np.squeeze(x, axis=2)
-    return x
-
-def grid_show(fig, x, size):
-    ax = fig.add_subplot(111)
-    x = grid_transform(x, size)
-    if len(x.shape) > 2:
-        ax.imshow(x)
-    else:
-        ax.imshow(x, cmap='gray')
-
 class WassersteinGAN(object):
-    def __init__(self, g_net, d_net, x_sampler, z_sampler):
+    def __init__(self, g_net, d_net, data_sampler, noise_sampler, scale=10.0):
+        '''
+        Parameters
+        ----------
+        g_net : model
+            The generator.
+        d_net : model
+            The discriminator.
+        data_sampler: data
+            The input data.
+        noise_sampler: data
+            The noise generator.
+        '''
         self.g_net = g_net
         self.d_net = d_net
-        self.x_sampler = x_sampler
-        self.z_sampler = z_sampler
-        self.x_dim = self.d_net.x_dim
-        self.z_dim = self.g_net.z_dim
-        self.x = tf.placeholder(tf.float32, [None, self.x_dim], name='x')
-        self.z = tf.placeholder(tf.float32, [None, self.z_dim], name='z')
+        self.data_sampler = data_sampler
+        self.noise_sampler = noise_sampler
+        self.image_dim = self.d_net.image_dim
+        self.label_dim = self.g_net.label_dim
+        self.noise_dim = self.g_net.noise_dim
+        self.images = tf.placeholder(tf.float32, [None, self.image_dim], name='images')
+        self.labels = tf.placeholder(tf.float32, [None, self.label_dim], name='labels')
+        self.noise = tf.placeholder(tf.float32, [None, self.noise_dim], name='noise')
 
-        self.x_ = self.g_net(self.z)
+        self._images = self.g_net(self.noise, self.labels)
 
-        self.d = self.d_net(self.x, reuse=False)
-        self.d_ = self.d_net(self.x_)
+        # discriminate real images
+        self.d = self.d_net(self.images, self.labels, reuse=False)
+        # discriminate fake images
+        self._d = self.d_net(self._images, self.labels)
 
-        self.g_loss = tf.reduce_mean(self.d_)
-        self.d_loss = tf.reduce_mean(self.d) - tf.reduce_mean(self.d_)
-
-        self.reg = tc.layers.apply_regularization(
-            tc.layers.l1_regularizer(2.5e-5),
-            weights_list=[
-                var for var in tf.global_variables() if 'weights' in var.name
-            ]
+        d_loss = tf.reduce_mean(
+            tf.nn.sigmoid_cross_entropy_with_logits(
+                labels=tf.ones_like(tf.nn.sigmoid(self.d)), logits=self.d
+            )
         )
-        self.g_loss_reg = self.g_loss + self.reg
-        self.d_loss_reg = self.d_loss + self.reg
-        with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-            self.d_rmsprop = tf.train.RMSPropOptimizer(learning_rate=5e-5)\
-                .minimize(self.d_loss_reg, var_list=self.d_net.vars)
-            self.g_rmsprop = tf.train.RMSPropOptimizer(learning_rate=5e-5)\
-                .minimize(self.g_loss_reg, var_list=self.g_net.vars)
+        _d_loss = tf.reduce_mean(
+            tf.nn.sigmoid_cross_entropy_with_logits(
+                labels=tf.zeros_like(tf.nn.sigmoid(self._d)), logits=self._d
+            )
+        )
 
-        self.d_clip = [
-            v.assign(tf.clip_by_value(v, -0.01, 0.01)) for v in self.d_net.vars
-        ]
+        g_loss = tf.reduce_mean(
+            tf.nn.sigmoid_cross_entropy_with_logits(
+                labels=tf.ones_like(tf.nn.sigmoid(self._d)), logits=self._d
+            )
+        )
+
+        self.g_loss = g_loss
+        self.d_loss = d_loss + _d_loss
+
+        epsilon = tf.random_uniform([], 0.0, 1.0)
+        image_hat = epsilon*self.images + (1-epsilon)*self._images
+        d_hat = self.d_net(image_hat, self.labels)
+
+        ddx = tf.gradients(d_hat, image_hat)[0]
+        ddx = tf.sqrt(tf.reduce_sum(tf.square(ddx), axis=1))
+        ddx = tf.reduce_mean(tf.square(ddx-1.0) * scale)
+        self.d_loss += ddx
+
+        with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+            self.g_adam = tf.train.AdamOptimizer(learning_rate=1e-4, beta1=0.5, beta2=0.9)\
+                .minimize(self.g_loss, var_list=self.g_net.vars)
+            self.d_adam = tf.train.AdamOptimizer(learning_rate=1e-4, beta1=0.5, beta2=0.9)\
+                .minimize(self.d_loss, var_list=self.d_net.vars)
+
+        self.saver = tf.train.Saver()
         self.sess = tf.Session()
 
-    def train(self, epochs=100, batch_size=64):
+    def train(self, epochs=100, batch_size=64, d_iters=5):
         self.sess.run(tf.global_variables_initializer())
         for t in range(epochs):
-            d_iters = 5
-            #if t % 500 == 0 or t < 25:
-            #     d_iters = 100
+            bx, by = self.data_sampler(batch_size)
 
             for _ in range(d_iters):
-                bx = self.x_sampler(batch_size)
-                bz = self.z_sampler(batch_size, self.z_dim)
-                self.sess.run(self.d_clip)
+                bz = self.noise_sampler(batch_size, self.noise_dim)
                 self.sess.run(
-                    self.d_rmsprop, feed_dict={self.x: bx, self.z: bz}
+                    self.d_adam,
+                    feed_dict={self.images: bx, self.labels: by, self.noise: bz}
                 )
 
-            bz = self.z_sampler(batch_size, self.z_dim)
-            self.sess.run(self.g_rmsprop, feed_dict={self.z: bz, self.x: bx})
+            bz = self.noise_sampler(batch_size, self.noise_dim)
+            self.sess.run(
+                self.g_adam,
+                feed_dict={self.images: bx, self.labels: by, self.noise: bz}
+            )
 
             if t % 100 == 0:
-                bx = self.x_sampler(batch_size)
-                bz = self.z_sampler(batch_size, self.z_dim)
+                bx, by = self.data_sampler(batch_size)
+                bz = self.noise_sampler(batch_size, self.noise_dim)
 
-                d_loss = self.sess.run(
-                    self.d_loss, feed_dict={self.x: bx, self.z: bz}
-                )
                 g_loss = self.sess.run(
-                    self.g_loss, feed_dict={self.z: bz, self.x: bx}
+                    self.g_loss,
+                    feed_dict={self.images: bx, self.labels: by, self.noise: bz}
                 )
-                print('Iter {}, d_loss {:.4f}, g_loss {:.4f}'.format(t, d_loss, g_loss))
+                d_loss = self.sess.run(
+                    self.d_loss,
+                    feed_dict={self.images: bx, self.labels: by, self.noise: bz}
+                )
+                logger.info('Iter {}, g_loss {:.4f}, d_loss {:.4f}'\
+                    .format(t, g_loss, d_loss))
 
-            if t % 100 == 0:
-                bz = self.z_sampler(batch_size, self.z_dim)
-                bx = self.sess.run(self.x_, feed_dict={self.z: bz})
-                bx = self.x_sampler.data2img(bx)
+                # save model
+                save_path = self.saver.save(
+                    self.sess, os.path.join('saved_model', 'model.ckpt')
+                )
+                logger.info('checkpoint saved to \'{}\' at t={}'\
+                    .format(save_path, t))
+
+                bx = self.sess.run(
+                    self._images,
+                    feed_dict={self.labels: by, self.noise: bz}
+                )
+                # save images
+                save_path = os.path.join('logs', '{}_g{:.4f}_d{:.4f}'\
+                    .format(t, g_loss, d_loss))
+                os.makedirs(save_path)
+                bx = self.data_sampler.to_images(bx)
                 for i in range(bx.shape[0]):
-                    skimage.io.imsave('logs/{}_{}.jpg'.format(t/100, i), bx[i, ...])
-                fig = plt.figure('WGAN')
-                grid_show(fig, bx, self.x_sampler.shape)
-                fig.savefig('logs/{}.pdf'.format(t/100))
+                    skimage.io.imsave(
+                        os.path.join(save_path, '{}.jpg'.format(i)), bx[i, ...]
+                    )
+
+            """
+            # save preview
+            fig = plt.figure('WGAN')
+            grid_show(fig, bx, self.data_sampler.shape)
+            fig.savefig('logs/{}.pdf'.format(t/100))
+            """
+
+    def restore(self):
+        self.saver.restore(self.sess, os.path.join('saved_model', 'model.ckpt'))
+
+    def generate(self, label, n_images=5):
+        bz = self.noise_sampler(n_images, self.noise_dim)
+        by = np.repeat(np.expand_dims(label, axis=0), n_images, axis=0)
+        bx = self.sess.run(
+            self._images,
+            feed_dict={self.labels: by, self.noise: bz}
+        )
+        return self.data_sampler.to_images(bx)

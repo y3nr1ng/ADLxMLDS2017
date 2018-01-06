@@ -1,5 +1,14 @@
 import argparse
 import os
+import logging
+handler = logging.StreamHandler()
+formatter = logging.Formatter(
+    '%(levelname).1s %(asctime)s [%(name)s] %(message)s', '%H:%M:%S'
+)
+handler.setFormatter(formatter)
+logging.basicConfig(level=logging.DEBUG, handlers=[handler])
+logger = logging.getLogger(__name__)
+
 import data, model
 from gan import WassersteinGAN
 
@@ -15,10 +24,10 @@ if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpus
 
-    xs = data.DataSampler()
-    zs = data.NoiseSampler()
+    data_sampler = data.DataSampler()
+    noise_sampler = data.NoiseSampler()
     g_net = model.Generator()
     d_net = model.Discriminator()
 
-    wgan = WassersteinGAN(g_net, d_net, xs, zs)
+    wgan = WassersteinGAN(g_net, d_net, data_sampler, noise_sampler)
     wgan.train(epochs=args.epochs, batch_size=args.batch_size)

@@ -124,6 +124,12 @@
 \section{效能改善}
 	最開始的時候參考了 \cite{jiamings91:online} 與 \cite{zhangqia0:online} 實作了 Conditional WGAN。
 	但在調整 generator 與 discriminator 的更新比例（以下簡稱 D/G 比）時，出現了 mode collapse 且收斂時間很久，所以轉而更新模型為 Conditional WGAN-GP（WGAN 換為投影片當中的 Improved WGAN）。
+	\begin{figure}[H]
+		\centering
+		\includegraphics[width=0.48\textwidth]{images/wgan_d1_g5_900}
+		\caption{WGAN 的 D/G 比 0.2 發生的 mode collapse} 
+	\end{figure}
+	
 	
 	以下為 WGAN 與 WGAN-GP 兩者之間的 G loss 與 D loss 比較。
 	\begin{figure}[H]
@@ -149,6 +155,12 @@
 		\centering
 		\includegraphics[width=0.48\textwidth]{images/wgan_gp_loss}
 		\caption{WGAN-GP 的 log loss} \label{fig:wgan_gp_loss}
+	\end{figure}
+	
+	以下為最後的結果
+	\begin{figure}[H]
+		\centering
+		\includegraphics[width=0.48\textwidth]{images/wgan_gp_9900_montage}
 	\end{figure}
 	
 	在本次作業當中針對 WGAN 實驗了不同的更新比例並觀察其 loss。
@@ -194,6 +206,8 @@
 %%   \cite{key}         ==>>  [#]
 %%   \cite[chap. 2]{key} ==>> [#, chap. 2]
 %%
+
+\nocite{Wasserst52:online} 
 
 %% References with bibTeX database:
 \bibliographystyle{apa}

@@ -17,8 +17,6 @@ class DataSampler(object):
         self.cur_batch_data, markers = self.load_new_data()
         self.cur_batch_label = self.load_label_range(markers)
         self.train_batch_ptr = 0
-        self.train_size = len(self.db_files) * 10000
-        self.test_size = self.train_size
 
     def list_valid_files(self, tag_path, rule_path='valid_tags.txt'):
         # load rules
@@ -85,5 +83,8 @@ class DataSampler(object):
         return np.reshape(np.clip(rescaled, 0.0, 1.0), [data.shape[0]] + self.shape)
 
 class NoiseSampler(object):
+    def __init__(self, seed=None):
+        np.random.seed(seed)
+
     def __call__(self, batch_size, noise_dim):
         return np.random.uniform(-1.0, 1.0, [batch_size, noise_dim])

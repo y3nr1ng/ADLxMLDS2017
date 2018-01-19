@@ -12,6 +12,8 @@ import utils
 class DataSampler(object):
     def __init__(self, path):
         self.shape = [64, 64, 3]
+        if path is None:
+            return
         self.db_path = os.path.join('data', 'faces')
         self.db_files, self.labels = self.list_valid_files(path)
         self.cur_batch_ptr = 0

@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpus
 
-    data_sampler = data.DataSampler()
+    data_sampler = data.DataSampler(os.path.join('data', 'tags.csv'))
     noise_sampler = data.NoiseSampler()
     g_net = model.Generator()
     d_net = model.Discriminator()
